@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import './chat-calls.css'
 import './chat-calls-video.css'
-import { CheckCheck, FileImage, Film, Laugh, LocateFixed, LoaderCircle, MapPin, Mic, MicOff, Phone, PhoneCall, PhoneOff, RotateCcw, Send, Square, Video, VideoOff, X } from '@lucide/vue'
+import { CheckCheck, FileImage, Film, Laugh, LocateFixed, LoaderCircle, MapPin, Mic, MicOff, Phone, PhoneCall, PhoneOff, Radio, RotateCcw, Send, Square, StopCircle, Video, VideoOff, Volume2, VolumeX, X } from '@lucide/vue'
 import { refreshMediaElement, revealVideoFrame } from '~/composables/useMediaUrls'
 
 const props = withDefaults(defineProps<{ mode?: 'drawer' | 'page' }>(), { mode: 'drawer' })
@@ -11,6 +11,7 @@ const { $supabase } = useNuxtApp()
 const { members } = useAccountManagement()
 const { messages, messagesLoading, messagesLoadingMore, messagesHasMore, loadMessages, loadOlderMessages, subscribe, send, recall, markRead, disconnect, liveLocations, broadcastLiveLocation } = useMessages()
 const { callStatus, callError, muted, cameraOff, callMode, remoteAudio, localVideo, remoteVideo, ensureChannel, startCall, acceptCall, rejectCall, hangUp, toggleMute, toggleCamera } = useCoupleCall()
+const { liveStatus, liveError, liveMuted, liveRemoteMuted, liveRemoteName, liveNeedsGesture, ensureLiveChannel, startLive, stopLive, dismissLive, toggleLiveMute, resumeLiveAudio } = useCoupleLiveMic()
 const text = ref('')
 const file = ref<File | null>(null)
 const preview = ref('')
@@ -54,7 +55,7 @@ function mapLink(location: LocationData | null){return location ? `https://www.o
 async function scrollLatest(smooth = false) { await nextTick(); scrollArea.value?.scrollTo({ top: scrollArea.value.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }) }
 async function loadOlderAtTop() { if (!scrollArea.value || messagesLoadingMore.value || !messagesHasMore.value) return; const beforeHeight = scrollArea.value.scrollHeight; const beforeTop = scrollArea.value.scrollTop; await loadOlderMessages(); await nextTick(); if (scrollArea.value) scrollArea.value.scrollTop = scrollArea.value.scrollHeight - beforeHeight + beforeTop }
 function handleMessageScroll(event: Event) { const area = event.currentTarget as HTMLElement; if (area.scrollTop < 70) void loadOlderAtTop() }
-async function init() { await loadMessages(); await subscribe(); await ensureChannel().catch(() => undefined); await markRead(); await scrollLatest() }
+async function init() { await loadMessages(); await subscribe(); await ensureChannel().catch(() => undefined); await ensureLiveChannel().catch(() => undefined); await markRead(); await scrollLatest() }
 onMounted(init)
 onBeforeUnmount(() => { stopRecording(true); void stopLiveLocation(); if (preview.value) URL.revokeObjectURL(preview.value) })
 watch(() => messages.value.length, async () => { await markRead(); await scrollLatest(true) })
@@ -166,11 +167,20 @@ async function submit() {
         <div class="partner-copy"><strong>{{ partner?.displayName || '等待伴侣加入' }}</strong><span><i /> 只属于你们的悄悄话</span></div>
         <div v-if="props.mode === 'page'" class="privacy-note">双人私密空间 · 实时同步</div>
         <div class="header-actions">
+          <button class="call-button live-button" :class="{active: liveStatus !== 'idle'}" type="button" :title="liveStatus === 'broadcasting' ? '结束开麦' : liveStatus === 'listening' ? '停止收听' : '直接开麦'" :aria-label="liveStatus === 'broadcasting' ? '结束开麦' : liveStatus === 'listening' ? '停止收听' : '直接开麦'" @click="liveStatus === 'broadcasting' ? stopLive() : liveStatus === 'listening' ? dismissLive() : startLive()"><StopCircle v-if="liveStatus !== 'idle'" :size="18"/><Radio v-else :size="18"/></button>
           <button class="call-button" type="button" :title="callStatus === 'idle' ? '发起语音通话' : '结束通话'" :aria-label="callStatus === 'idle' ? '发起语音通话' : '结束通话'" @click="callStatus === 'idle' ? startCall('audio') : hangUp()"><PhoneOff v-if="callStatus !== 'idle'" :size="18"/><PhoneCall v-else :size="18"/></button>
           <button v-if="callStatus === 'idle'" class="call-button video-call-button" type="button" title="发起视频通话" aria-label="发起视频通话" @click="startCall('video')"><Video :size="18"/></button>
           <button v-if="props.mode === 'drawer'" class="close-button" type="button" aria-label="关闭" @click="emit('close')"><X :size="20" /></button>
         </div>
       </header>
+      <div v-if="liveStatus !== 'idle'" class="live-mic-banner" :class="{broadcasting: liveStatus === 'broadcasting'}">
+        <span class="live-mic-icon"><Radio :size="16" /></span>
+        <div><strong>{{ liveStatus === 'broadcasting' ? '你正在开麦' : `${liveRemoteName} 正在开麦` }}</strong><small>{{ liveStatus === 'broadcasting' ? (liveMuted ? '已静音，对方暂时听不到' : '对方无需接听即可听到') : (liveRemoteMuted ? '对方暂时静音' : '已自动连接，正在收听') }}</small></div>
+        <button v-if="liveStatus === 'broadcasting'" type="button" :title="liveMuted ? '打开麦克风' : '静音'" @click="toggleLiveMute"><Volume2 v-if="liveMuted" :size="17"/><VolumeX v-else :size="17"/></button>
+        <button v-else-if="liveNeedsGesture" type="button" title="播放开麦声音" @click="resumeLiveAudio"><Volume2 :size="17" /></button>
+        <button v-else type="button" title="停止收听" @click="dismissLive"><VolumeX :size="17" /></button>
+      </div>
+      <p v-if="liveError" class="live-mic-error">{{ liveError }}</p>
       <audio ref="remoteAudio" autoplay playsinline />
       <div v-if="callMode === 'video' && callStatus !== 'idle'" class="video-stage"><video ref="remoteVideo" class="remote-video" autoplay playsinline/><video ref="localVideo" class="local-video" autoplay muted playsinline/></div>
       <div v-if="callStatus !== 'idle'" class="call-overlay" :class="callStatus">
@@ -248,4 +258,6 @@ form{position:relative;z-index:2;padding:12px 16px 15px;border-top:1px solid rgb
 <style scoped>
 @media(max-width:650px){.is-drawer .chat-panel{height:100dvh;padding-top:env(safe-area-inset-top)}.chat-panel>header{padding-top:max(15px,env(safe-area-inset-top))}.is-page .chat-panel{height:calc(100dvh - 106px)}.partner-copy strong{font-size:13px}.bubble p{font-size:12px}}
 .history-loading{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;color:#9a849e;font-size:10px}
+.live-button{color:#9c4a87!important}.live-button.active{background:linear-gradient(135deg,#9b55c6,#e36f9f)!important;color:#fff!important;box-shadow:0 8px 18px rgba(157,72,150,.25)!important}.live-mic-banner{position:relative;z-index:3;display:flex;align-items:center;gap:10px;margin:0 18px 8px;padding:10px 12px;border:1px solid rgba(215,151,196,.26);border-radius:17px;background:linear-gradient(120deg,rgba(244,224,251,.88),rgba(255,224,237,.88));box-shadow:0 8px 20px rgba(104,57,118,.08)}.live-mic-banner.broadcasting{background:linear-gradient(120deg,rgba(226,205,253,.92),rgba(255,211,232,.9))}.live-mic-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:11px;background:rgba(255,255,255,.72);color:#a34e94}.live-mic-banner>div{min-width:0;flex:1}.live-mic-banner strong,.live-mic-banner small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.live-mic-banner strong{color:#633a6f;font-size:12px}.live-mic-banner small{margin-top:3px;color:#977b9e;font-size:10px}.live-mic-banner>button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:10px;background:rgba(255,255,255,.68);color:#7b4a86;cursor:pointer}.live-mic-error{position:relative;z-index:3;margin:-1px 20px 8px;color:#b64f76;font-size:10px}
+@media(max-width:650px){.live-mic-banner{margin:0 12px 7px;padding:9px 10px}.live-mic-banner strong{font-size:11px}.live-mic-banner small{font-size:9px}.live-button{display:grid!important}}
 </style>
