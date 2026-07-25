@@ -208,6 +208,7 @@ function selectNav(label: string) {
 
 <template>
   <AppUpdatePrompt />
+  <PwaInstallPrompt />
   <BrandSplash />
   <div v-if="!appReady" class="app-loading"><Heart :size="28" fill="currentColor" /><span>正在打开我们的空间</span></div>
   <AuthFlow v-else-if="authVisible" @complete="authVisible = false" />

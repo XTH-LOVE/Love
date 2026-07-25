@@ -1,0 +1,21 @@
+{
+  "name": "Love小家 · CoupleSpace",
+  "short_name": "Love小家",
+  "description": "只属于两个人的私密实时共同空间。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7edf9",
+  "theme_color": "#f7edf9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/desktop-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
