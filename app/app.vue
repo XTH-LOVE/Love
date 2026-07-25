@@ -19,6 +19,10 @@ import {
   History,
   BrainCircuit,
   PawPrint,
+  Radio,
+  StopCircle,
+  Volume2,
+  VolumeX,
 } from '@lucide/vue'
 import { notifySystem, requestSystemAlerts } from './composables/useSystemAlerts'
 import { createMediaSignedUrl, refreshMediaElement, revealVideoFrame } from './composables/useMediaUrls'
@@ -58,6 +62,7 @@ const { members, loadMembers } = useAccountManagement()
 const { partnerOnline, connectPresence, disconnectPresence } = useCouplePresence()
 const { messages, unreadCount, loadMessages, subscribe: subscribeMessages, markRead, disconnect: disconnectMessages } = useMessages()
 const { callStatus, ensureChannel: ensureCallChannel, disconnectCall } = useCoupleCall()
+const { liveStatus, liveError, liveRemoteMuted, liveRemoteName, liveNeedsGesture, ensureLiveChannel, stopLive, dismissLive, resumeLiveAudio, disconnectLive } = useCoupleLiveMic()
 const { $supabase } = useNuxtApp()
 
 const latestMemory = computed(() => memories.value[0] || null)
@@ -141,6 +146,7 @@ onMounted(async () => {
   if (stage.value === 'paired') {
     await loadHomeData()
     await ensureCallChannel().catch(() => undefined)
+    await ensureLiveChannel().catch(() => undefined)
   }
   appReady.value = true
 })
@@ -150,8 +156,10 @@ watch(stage, async value => {
   if (value === 'paired') {
     await loadHomeData()
     await ensureCallChannel().catch(() => undefined)
+    await ensureLiveChannel().catch(() => undefined)
   } else {
     await disconnectCall()
+    await disconnectLive()
     await disconnectPresence()
     await disconnectMessages()
   }
@@ -173,7 +181,7 @@ function revealHomeVideo(event:Event){const video=event.currentTarget as HTMLVid
 function homeVideoReady(event: Event) { revealVideoFrame(event) }
 async function refreshHomeMedia(event: Event, path: string, bucket?: string, mediaType: 'image' | 'video' = 'image') { await refreshMediaElement(event, $supabase, path, bucket, mediaType === 'image' ? { width: 1200, height: 1200, resize: 'contain', quality: 82 } : undefined) }
 async function refreshHero(event: Event) { await refreshMediaElement(event, $supabase, homeHeroPath.value, homeHeroPath.value.includes('/album-media/') ? 'album-media' : 'memory-photos', { width: 1400, height: 900, resize: 'cover', quality: 84 }) }
-onBeforeUnmount(async () => { await disconnectCall(); await disconnectPresence(); await disconnectMessages() })
+onBeforeUnmount(async () => { await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages() })
 
 async function openChat() {
   messageToast.value = null
@@ -215,6 +223,13 @@ function selectNav(label: string) {
     <NuxtRouteAnnouncer />
     <LoveSky />
     <button v-if="messageToast" class="message-toast" type="button" @click="openChat"><MessageCircleHeart :size="20"/><span><strong>{{messageToast.sender}} 发来悄悄话</strong><small>{{messageToast.content}}</small></span><ChevronRight :size="17"/></button>
+    <div v-if="liveStatus !== 'idle'" class="live-status-capsule" :class="{broadcasting: liveStatus === 'broadcasting'}">
+      <span class="live-status-icon"><Radio :size="17" /></span>
+      <span class="live-status-copy"><strong>{{ liveStatus === 'broadcasting' ? '你正在开麦' : `${liveRemoteName} 正在开麦` }}</strong><small>{{ liveStatus === 'broadcasting' ? '对方无需接听即可收听' : (liveRemoteMuted ? '对方暂时静音' : '正在后台收听') }}</small></span>
+      <button v-if="liveStatus === 'listening' && liveNeedsGesture" type="button" title="播放开麦声音" @click="resumeLiveAudio"><Volume2 :size="16" /></button>
+      <button v-else type="button" :title="liveStatus === 'broadcasting' ? '结束开麦' : '停止收听'" @click="liveStatus === 'broadcasting' ? stopLive() : dismissLive()"><StopCircle v-if="liveStatus === 'broadcasting'" :size="16" /><VolumeX v-else :size="16" /></button>
+    </div>
+    <p v-if="liveError" class="live-status-error">{{ liveError }}</p>
 
     <aside class="sidebar glass-panel" aria-label="主要导航">
       <button class="couple-mark" type="button" aria-label="我们的主页">
@@ -678,6 +693,9 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .app-shell :is(.memory-editor,.album-modal,.item-editor,.ann-editor) :is(input,textarea,select) { border-radius: 9px!important; }
 .app-shell :is(.memory-editor,.album-modal,.item-editor,.ann-editor) :is(.save-button,.confirm,.save) { border-radius: 9px!important; background: #53405a!important; }
 @media(max-width:650px){.app-shell{background:#f7f5f8}.glass-panel{backdrop-filter:none;-webkit-backdrop-filter:none}.hero-section{min-height:0;border-radius:15px}.hero-photo{min-height:178px;margin-left:0}.hero-copy{padding:24px 19px 26px}.panel{border-radius:14px}.mobile-nav{border-radius:14px;box-shadow:0 6px 20px rgba(48,37,54,.1)}.mobile-nav-button{border-radius:9px}.mobile-nav-button.active{background:#eee7f0;color:#583d60}}
+</style>
+<style>
+.live-status-capsule{position:fixed;z-index:80;top:20px;left:50%;display:flex;align-items:center;gap:9px;min-width:245px;max-width:min(360px,calc(100vw - 28px));padding:9px 10px;border:1px solid rgba(255,255,255,.84);border-radius:18px;background:linear-gradient(135deg,rgba(255,247,255,.9),rgba(250,226,247,.84));box-shadow:0 14px 35px rgba(81,44,93,.18);backdrop-filter:blur(18px) saturate(130%);transform:translateX(-50%)}.live-status-capsule.broadcasting{background:linear-gradient(135deg,rgba(236,218,255,.94),rgba(255,220,237,.9))}.live-status-icon{display:grid;place-items:center;width:29px;height:29px;border-radius:10px;background:rgba(255,255,255,.7);color:#a34e94}.live-status-copy{min-width:0;flex:1}.live-status-copy strong,.live-status-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.live-status-copy strong{color:#603769;font-size:11px}.live-status-copy small{margin-top:2px;color:#927b98;font-size:9px}.live-status-capsule>button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:10px;background:rgba(255,255,255,.68);color:#7c4b88;cursor:pointer}.live-status-error{position:fixed;z-index:80;top:75px;left:50%;max-width:min(360px,calc(100vw - 28px));margin:0;transform:translateX(-50%);color:#b64f76;font-size:10px;text-align:center}.live-status-capsule~.live-status-error{margin-top:0}@media(max-width:650px){.live-status-capsule{top:max(10px,env(safe-area-inset-top));min-width:0;width:calc(100vw - 28px);border-radius:16px}.live-status-error{top:68px}}
 </style>
 <style>
 /* Final overflow guard for portrait and panoramic uploads. */
