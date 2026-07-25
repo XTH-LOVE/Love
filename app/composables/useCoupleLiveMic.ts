@@ -19,8 +19,14 @@ let remoteStreamIds = new Set<string>()
 let remoteStreams = new Map<string, MediaStream>()
 let audioElement: HTMLAudioElement | null = null
 let ignoreCurrentLive = false
+let loginInFlight = false
+let startInFlight = false
+let listenInFlight = false
 
 function readableError(error: any, fallback: string) {
+  const code = Number(error?.code ?? error?.errorCode ?? 0)
+  const message = String(error?.message || error?.msg || '').toLowerCase()
+  if (code === 1102026 || message.includes('cancel login')) return 'ZEGO 登录被取消，上一条连接正在释放，请等待 1 秒后重试。'
   if (typeof error === 'string' && error.trim()) return error
   const detail = [error?.message, error?.msg, error?.errorMessage, error?.extendedData]
     .find(value => typeof value === 'string' && value.trim())
@@ -130,6 +136,9 @@ export function useCoupleLiveMic() {
     engine.on('roomStateUpdate', (streamRoom: string, state: string, errorCode: number, extendedData: string) => {
       if (streamRoom !== roomId || state !== 'DISCONNECTED') return
       if (errorCode) liveError.value = extendedData ? `${extendedData}（错误码 ${errorCode}）` : `开麦房间已断开（错误码 ${errorCode}）`
+      // Do not call logoutRoom while loginRoom is still pending: ZEGO reports
+      // that sequence as the misleading 1102026 "cancel login" error.
+      if (loginInFlight) return
       cleanupRoom()
     })
     engine.on('publisherStateUpdate', (result: any) => {
@@ -148,7 +157,13 @@ export function useCoupleLiveMic() {
     await ensureEngine(auth.appId)
     roomId = auth.roomId
     const user = { userID: userId, userName: profile.value?.displayName || 'Love小家' }
-    const loggedIn = await engine.loginRoom(roomId, auth.token, user, { userUpdate: true })
+    loginInFlight = true
+    let loggedIn = false
+    try {
+      loggedIn = await engine.loginRoom(roomId, auth.token, user, { userUpdate: true })
+    } finally {
+      loginInFlight = false
+    }
     if (!loggedIn) throw new Error('开麦房间登录失败，请检查 ZEGO Token')
     if (!publish) {
       liveStatus.value = 'listening'
@@ -162,10 +177,11 @@ export function useCoupleLiveMic() {
   }
 
   async function beginListening(payload: any) {
-    if (ignoreCurrentLive || liveStatus.value !== 'idle') return
+    if (ignoreCurrentLive || liveStatus.value !== 'idle' || listenInFlight) return
     liveError.value = ''
     liveRemoteName.value = String(payload?.userName || 'TA')
     liveRemoteMuted.value = false
+    listenInFlight = true
     try {
       await ensureLiveChannel()
       await joinRoom(false)
@@ -173,6 +189,8 @@ export function useCoupleLiveMic() {
     } catch (error: any) {
       liveError.value = readableError(error, '无法加入对方的开麦')
       cleanupRoom()
+    } finally {
+      listenInFlight = false
     }
   }
 
@@ -209,13 +227,14 @@ export function useCoupleLiveMic() {
   }
 
   async function startLive() {
-    if (liveStatus.value !== 'idle') return
+    if (liveStatus.value !== 'idle' || startInFlight) return
     if (demoMode.value || !$supabase || !profile.value?.coupleId) {
       liveError.value = '开麦需要登录并绑定情侣空间'
       return
     }
     liveError.value = ''
     ignoreCurrentLive = false
+    startInFlight = true
     try {
       await ensureLiveChannel()
       await joinRoom(true)
@@ -224,6 +243,8 @@ export function useCoupleLiveMic() {
     } catch (error: any) {
       liveError.value = readableError(error, '无法开始开麦')
       cleanupRoom()
+    } finally {
+      startInFlight = false
     }
   }
 
@@ -275,6 +296,9 @@ export function useCoupleLiveMic() {
     channelReady = null
     ignoreCurrentLive = false
     if (audioElement) { audioElement.remove(); audioElement = null }
+    loginInFlight = false
+    startInFlight = false
+    listenInFlight = false
   }
 
   return {
