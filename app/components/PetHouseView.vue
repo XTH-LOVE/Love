@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Check, Flame, Gamepad2, Hand, Heart, LoaderCircle, PawPrint, Save, Sparkles, Utensils } from '@lucide/vue'
+import { ArrowLeft, Check, Flame, Gamepad2, Hand, Heart, LoaderCircle, PawPrint, Save, Sparkles, Utensils } from '@lucide/vue'
 
-const { pet, streak, loading, busy, error, moodLabel, hungerLabel, levelProgress, load, updateStyle, interact } = useCouplePet()
+const { pet, streak, loading, busy, error, petRewards, moodLabel, hungerLabel, levelProgress, load, updateStyle, interact } = useCouplePet()
+const emit = defineEmits<{ back: [] }>()
 const selectedSkin = ref('lavender')
 const selectedAccessories = ref<string[]>([])
 const selectedSpecies = ref('bunny')
@@ -31,6 +32,8 @@ const speciesOptions = [
 ]
 const growthStage = computed(() => (pet.value?.level || 1) >= 10 ? '成熟守护形态' : (pet.value?.level || 1) >= 5 ? '成长少年形态' : '初生幼崽形态')
 const levelCopy = computed(() => (pet.value?.level || 1) >= 10 ? '已经是你们爱情里的小守护者' : '再积累 ' + (50 - ((pet.value?.experience || 0) % 50)) + ' 点经验，就会长大一点')
+const rewardLabel = (key: string) => ({ 'pet-accessory-flower': '小花装扮', 'pet-accessory-crown': '皇冠装扮', 'pet-accessory-bow': '蝴蝶结装扮', 'house-furniture-love-lamp': '爱心灯', 'house-furniture-moon-sofa': '月光沙发' }[key] || '共同奖励')
+const hasReward = (key: string) => petRewards.value.some(reward => reward.rewardKey === key)
 
 function toggleAccessory(id: string) { selectedAccessories.value = selectedAccessories.value.includes(id) ? selectedAccessories.value.filter(item => item !== id) : selectedAccessories.value.length < 3 ? [...selectedAccessories.value, id] : selectedAccessories.value }
 async function saveStyle() { savedNotice.value = false; await updateStyle(selectedSkin.value, selectedAccessories.value, selectedSpecies.value); if (!error.value) { savedNotice.value = true; window.setTimeout(() => { savedNotice.value = false }, 2400) } }
@@ -47,14 +50,15 @@ onMounted(load)
       <section class="pet-scene" :class="`scene-${pet?.skin || 'lavender'}`">
         <div class="scene-sparkles" aria-hidden="true">✦　♡　✧　♡　✦</div>
         <div class="house-window" aria-hidden="true"><span class="moon">☾</span><i>✦　·　✧</i></div>
-        <div class="house-furniture" aria-hidden="true"><div class="plant"><b>♡</b><i/><i/></div><div class="sofa"><span/><span/><span/></div><div class="rug"/></div>
+        <div class="house-furniture" aria-hidden="true"><div class="plant"><b>♡</b><i/><i/></div><div class="sofa"><span/><span/><span/></div><div v-if="hasReward('house-furniture-love-lamp')" class="reward-lamp">✦</div><div v-if="hasReward('house-furniture-moon-sofa')" class="reward-moon-sofa">☾</div><div class="rug"/></div>
         <div class="pet-house-copy"><span class="house-label"><PawPrint :size="14"/> {{ pet?.name || '小爱' }} 的成长记录</span><h2>{{ moodLabel }}</h2><p>{{ levelCopy }}</p></div>
         <div class="pet-hero"><Pet2D :species="selectedSpecies" :skin="selectedSkin" :level="pet?.level" :action="petAction" :accessories="selectedAccessories" :mood="pet?.mood"/><span class="pet-heart"><Heart :size="18" fill="currentColor"/></span><span class="pet-stage">{{ growthStage }}</span><div class="pet-actions"><button type="button" :disabled="busy" title="喂食" @click="performAction('feed')"><Utensils :size="14"/><span>喂食</span></button><button type="button" :disabled="busy" title="陪玩" @click="performAction('play')"><Gamepad2 :size="14"/><span>陪玩</span></button><button type="button" :disabled="busy" title="摸摸" @click="performAction('pet')"><Hand :size="14"/><span>摸摸</span></button></div></div>
         <div class="scene-action-dock"><button type="button" title="睡觉" @click="performAction('sleep')">☾<span>睡觉</span></button><button type="button" title="挥手" @click="performAction('wave')">♡<span>挥手</span></button><button type="button" title="跳舞" @click="performAction('dance')">✦<span>跳舞</span></button></div>
         <div class="scene-floor"/>
       </section>
       <section class="pet-stats"><article><span>成长等级</span><strong>Lv.{{ pet?.level || 1 }}</strong><div class="stat-bar"><i :style="{width:`${levelProgress}%`}"/></div></article><article><span>心情</span><strong>{{ pet?.mood || 0 }}%</strong><div class="stat-bar pink"><i :style="{width:`${pet?.mood || 0}%`}"/></div></article><article><span>饱食度</span><strong>{{ pet?.hunger || 0 }}%</strong><div class="stat-bar mint"><i :style="{width:`${pet?.hunger || 0}%`}"/></div></article></section>
-      <section class="style-panel"><header><div><p class="eyebrow">MAKE IT YOURS</p><h3>给小爱换一身心情</h3></div><button class="save-style" type="button" :disabled="busy" @click="saveStyle"><LoaderCircle v-if="busy" class="spin" :size="15"/><Save v-else :size="15"/>保存装扮</button></header><div class="style-section"><span>选择共同宠物</span><div class="species-options"><button v-for="item in speciesOptions" :key="item.id" type="button" :aria-pressed="selectedSpecies===item.id" :class="{selected:selectedSpecies===item.id}" @click="selectedSpecies=item.id"><b>{{ item.art }}</b><small>{{ item.label }}</small><Check v-if="selectedSpecies===item.id" :size="13"/></button></div></div><div class="style-section"><span>背景皮肤</span><div class="skin-options"><button v-for="skin in skins" :key="skin.id" type="button" :aria-pressed="selectedSkin===skin.id" :class="{selected:selectedSkin===skin.id}" @click="selectedSkin=skin.id"><i :style="{background:skin.color}"/><small>{{ skin.label }}</small><Check v-if="selectedSkin===skin.id" :size="13"/></button></div></div><div class="style-section"><span>配饰（最多 3 件）</span><div class="accessory-options"><button v-for="item in accessories" :key="item.id" type="button" :aria-pressed="selectedAccessories.includes(item.id)" :class="{selected:selectedAccessories.includes(item.id)}" @click="toggleAccessory(item.id)"><b>{{ item.art }}</b><small>{{ item.label }}</small><Check v-if="selectedAccessories.includes(item.id)" :size="13"/></button></div></div><p v-if="savedNotice" class="style-saved"><Check :size="14"/> 已保存到你们的小屋</p><p v-if="error" class="style-error">{{ error }}</p></section>
+      <section class="style-panel"><header><div><p class="eyebrow">MAKE IT YOURS</p><h3>给小爱换一身心情</h3></div><button class="save-style" type="button" :disabled="busy" @click="saveStyle"><LoaderCircle v-if="busy" class="spin" :size="15"/><Save v-else :size="15"/>保存装扮</button></header><div class="style-section"><span>选择共同宠物</span><div class="species-options"><button v-for="item in speciesOptions" :key="item.id" type="button" :aria-pressed="selectedSpecies===item.id" :class="{selected:selectedSpecies===item.id}" @click="selectedSpecies=item.id"><b>{{ item.art }}</b><small>{{ item.label }}</small><Check v-if="selectedSpecies===item.id" :size="13"/></button></div></div><div class="style-section"><span>背景皮肤</span><div class="skin-options"><button v-for="skin in skins" :key="skin.id" type="button" :aria-pressed="selectedSkin===skin.id" :class="{selected:selectedSkin===skin.id}" @click="selectedSkin=skin.id"><i :style="{background:skin.color}"/><small>{{ skin.label }}</small><Check v-if="selectedSkin===skin.id" :size="13"/></button></div></div><div class="style-section"><span>配饰（最多 3 件）</span><div class="accessory-options"><button v-for="item in accessories" :key="item.id" type="button" :aria-pressed="selectedAccessories.includes(item.id)" :class="{selected:selectedAccessories.includes(item.id)}" @click="toggleAccessory(item.id)"><b>{{ item.art }}</b><small>{{ item.label }}</small><Check v-if="selectedAccessories.includes(item.id)" :size="13"/></button></div></div><div v-if="petRewards.length" class="unlocked-rewards"><span>已解锁奖励</span><div><b v-for="reward in petRewards" :key="reward.rewardKey">{{ rewardLabel(reward.rewardKey) }}</b></div></div><p v-if="savedNotice" class="style-saved"><Check :size="14"/> 已保存到你们的小屋</p><p v-if="error" class="style-error">{{ error }}</p></section>
+      <StreakHistoryPanel />
     </template>
   </section>
 </template>
@@ -69,6 +73,7 @@ onMounted(load)
 <style scoped>
 .accessory-options button svg{position:absolute;top:7px;right:8px;color:#9254a1}
 .style-saved{display:flex;align-items:center;gap:5px;margin:13px 0 0;color:#4d9d83;font-size:10px;font-weight:800}
+.unlocked-rewards{margin-top:18px;padding:12px;border:1px solid rgba(221,178,91,.28);border-radius:14px;background:#fff9e9}.unlocked-rewards>span{display:block;color:#a77a2d;font-size:10px;font-weight:800}.unlocked-rewards>div{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.unlocked-rewards b{padding:4px 7px;border-radius:8px;background:#fff0c9;color:#a7782a;font-size:9px}
 </style>
 <style scoped>
 .pet-hero{right:10%;bottom:32px;width:360px;height:360px}
@@ -82,6 +87,7 @@ onMounted(load)
 .species-options button{position:relative;display:flex;align-items:center;gap:7px;min-height:52px;padding:7px 10px;border:1px solid #eadfed;border-radius:14px;background:#fff;color:#765d7b;cursor:pointer}
 .species-options button.selected{border-color:#b77ac4;background:#f7eafa;box-shadow:0 0 0 2px rgba(181,118,197,.14)}
 .species-options b{font-size:24px;line-height:1}.species-options small{font-size:10px}.species-options svg{margin-left:auto;color:#9254a1}
+.reward-lamp,.reward-moon-sofa{position:absolute;z-index:3;display:grid;place-items:center;border-radius:50%;color:#fff1a6;text-shadow:0 0 10px rgba(255,229,135,.9);animation:reward-glow 2.4s ease-in-out infinite alternate}.reward-lamp{right:28%;bottom:58px;width:28px;height:42px;background:linear-gradient(#f8d86f,#d88c82);font-size:18px}.reward-moon-sofa{right:23%;bottom:40px;width:45px;height:45px;background:rgba(255,244,198,.28);font-size:26px}@keyframes reward-glow{to{transform:translateY(-3px);filter:brightness(1.15)}}
 @media(max-width:700px){
   .pet-house-view{padding-bottom:120px}
   .pet-hero{right:50%;bottom:48px;width:285px;height:300px;transform:translateX(50%)}

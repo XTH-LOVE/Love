@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { CalendarDays, Camera, Edit3, ImagePlus, LoaderCircle, MapPin, MoreHorizontal, Plus, Trash2, X } from '@lucide/vue'
+import { ArrowLeft, Bookmark, CalendarDays, Camera, Edit3, Heart, ImagePlus, LoaderCircle, MapPin, MessageCircle, MoreHorizontal, Plus, Send, Trash2, X } from '@lucide/vue'
 import type { Memory, MemoryPhoto } from '~/composables/useMemories'
 import { refreshMediaElement } from '~/composables/useMediaUrls'
 
-const { memories, memoriesLoading, memoriesLoadingMore, memoriesHasMore, loadMemories, loadMoreMemories, createMemory, updateMemory, deleteMemory } = useMemories()
+const { memories, memoriesLoading, memoriesLoadingMore, memoriesHasMore, loadMemories, loadMoreMemories, createMemory, updateMemory, deleteMemory, toggleFavorite, toggleReaction, addComment } = useMemories()
 const { $supabase } = useNuxtApp()
+const emit = defineEmits<{ back: [] }>()
 const editorOpen = ref(false)
 const editingId = ref<string | null>(null)
 const content = ref('')
@@ -16,6 +17,9 @@ const previews = ref<string[]>([])
 const saving = ref(false)
 const errorMessage = ref('')
 const menuId = ref<string | null>(null)
+const commentOpenId = ref<string | null>(null)
+const commentDrafts = reactive<Record<string, string>>({})
+const reactionEmojis = ['❤️', '😂', '🥹']
 
 async function handleTimelineScroll() {
   if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 500) await loadMoreMemories()
@@ -45,8 +49,11 @@ async function save() {
   } catch (error: any) { errorMessage.value = error.message || '保存失败，请稍后再试' } finally { saving.value = false }
 }
 async function remove(memory: Memory) { if (confirm('确定删除这条共同回忆吗？')) await deleteMemory(memory); menuId.value = null }
+async function favorite(memory: Memory) { try { await toggleFavorite(memory) } catch (error: any) { errorMessage.value = error.message || '收藏失败' } }
+async function react(memory: Memory, emoji: string) { try { await toggleReaction(memory, emoji) } catch (error: any) { errorMessage.value = error.message || '回应失败' } }
+async function submitComment(memory: Memory) { const draft = commentDrafts[memory.id] || ''; if (!draft.trim()) return; try { await addComment(memory, draft); commentDrafts[memory.id] = '' } catch (error: any) { errorMessage.value = error.message || '评论发送失败' } }
 function formatDate(date: string) { return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }).format(new Date(`${date}T12:00:00`)) }
-async function refreshMemoryPhoto(event: Event, photo: MemoryPhoto) { await refreshMediaElement(event, $supabase, photo.path, photo.path.includes('/album-media/') ? 'album-media' : 'memory-photos', { width: 1200, height: 1200, resize: 'contain', quality: 82 }) }
+async function refreshMemoryPhoto(event: Event, photo: MemoryPhoto) { const path = photo.thumbPath || photo.path; await refreshMediaElement(event, $supabase, path, path.includes('/album-media/') ? 'album-media' : 'memory-photos', photo.thumbPath ? undefined : { width: 640, height: 640, resize: 'contain', quality: 68 }) }
 
 defineExpose({ openCreate })
 </script>
@@ -54,6 +61,7 @@ defineExpose({ openCreate })
 <template>
   <section class="timeline-view">
     <header class="timeline-header">
+      <button class="page-back" type="button" aria-label="返回首页" title="返回首页" @click="emit('back')"><ArrowLeft :size="17" /><span>首页</span></button>
       <div><p class="eyebrow">OUR MEMORIES</p><h1>我们的时光</h1><span>一起收藏那些值得反复想起的日子。</span></div>
       <button class="new-memory" type="button" @click="openCreate"><Plus :size="18" /> 记录此刻</button>
     </header>
@@ -66,9 +74,11 @@ defineExpose({ openCreate })
         <div class="timeline-dot" />
         <div class="memory-card">
           <div class="memory-card-head"><span>{{ formatDate(memory.memoryDate) }} · {{ memory.authorName }} 记录</span><div class="entry-menu"><button type="button" aria-label="更多操作" @click="menuId = menuId === memory.id ? null : memory.id"><MoreHorizontal :size="20" /></button><div v-if="menuId === memory.id"><button type="button" @click="openEdit(memory)"><Edit3 :size="15" /> 编辑</button><button class="danger" type="button" @click="remove(memory)"><Trash2 :size="15" /> 删除</button></div></div></div>
-          <div v-if="memory.photos.length" class="photo-grid" :class="`count-${Math.min(memory.photos.length, 3)}`"><template v-for="photo in memory.photos" :key="photo.path || photo.url"><div v-if="!photo.url" class="photo-placeholder"><LoaderCircle class="spin" :size="18"/></div><img v-else :src="photo.url" alt="共同回忆照片" loading="lazy" decoding="async" @error="refreshMemoryPhoto($event, photo)"></template></div>
+          <div v-if="memory.photos.length" class="photo-grid" :class="`count-${Math.min(memory.photos.length, 3)}`"><template v-for="(photo, photoIndex) in memory.photos" :key="photo.path || photo.url"><div v-if="!photo.url" class="photo-placeholder"><LoaderCircle class="spin" :size="18"/></div><img v-else :src="photo.url" alt="共同回忆照片" :loading="photoIndex < 3 ? 'eager' : 'lazy'" :fetchpriority="photoIndex < 2 ? 'high' : 'low'" decoding="async" @error="refreshMemoryPhoto($event, photo)"></template></div>
           <p>{{ memory.content }}</p>
           <div v-if="memory.location" class="entry-location"><MapPin :size="14" /> {{ memory.location }}</div>
+          <div class="memory-interactions"><button type="button" :class="{active: memory.isFavorite}" @click="favorite(memory)"><Bookmark :size="15" :fill="memory.isFavorite ? 'currentColor' : 'none'" /> 收藏 <small v-if="memory.favoriteCount">{{ memory.favoriteCount }}</small></button><button v-for="emoji in reactionEmojis" :key="emoji" type="button" :class="{active: memory.reactions?.[emoji]?.reacted}" @click="react(memory, emoji)">{{ emoji }} <small v-if="memory.reactions?.[emoji]?.count">{{ memory.reactions[emoji].count }}</small></button><button type="button" @click="commentOpenId = commentOpenId === memory.id ? null : memory.id"><MessageCircle :size="15" /> 评论 <small v-if="memory.comments?.length">{{ memory.comments.length }}</small></button></div>
+          <div v-if="commentOpenId === memory.id" class="memory-comments"><div v-if="memory.comments?.length" class="comment-list"><p v-for="comment in memory.comments.slice(0, 3)" :key="comment.id"><strong>{{ comment.authorName }}</strong><span>{{ comment.content }}</span></p></div><div class="comment-compose"><input v-model="commentDrafts[memory.id]" maxlength="240" placeholder="写一句回应…" @keyup.enter="submitComment(memory)"><button type="button" aria-label="发送评论" title="发送评论" @click="submitComment(memory)"><Send :size="15" /></button></div></div>
         </div>
       </article>
     </div>
@@ -94,6 +104,9 @@ defineExpose({ openCreate })
 .photo-placeholder{display:grid;place-items:center;min-height:190px;background:linear-gradient(135deg,#f1eaf5,#fbeef4);color:#b18ec1}
 .timeline-loading-more,.timeline-end{display:flex;align-items:center;justify-content:center;gap:7px;padding:18px;color:#927e96;font-size:10px}.timeline-end{color:#aa9bab}
 @media(max-width:650px){.timeline-header{align-items:flex-start}.timeline-header h1{font-size:26px}.timeline-header>div>span{font-size:11px}.new-memory{width:44px;padding:0;font-size:0}.timeline-summary{padding:18px}.timeline-list:before{left:8px}.timeline-entry{grid-template-columns:18px 1fr;gap:10px}.timeline-date{display:none}.timeline-dot{grid-column:1}.memory-card{grid-column:2;padding:16px}.photo-grid img{min-height:135px}.editor-overlay{padding:0;align-items:end}.memory-editor{max-height:92vh;padding:22px 18px calc(22px + env(safe-area-inset-bottom));border-radius:25px 25px 0 0}.field-row{grid-template-columns:1fr}.preview-grid{grid-template-columns:repeat(3,1fr)}}
+</style>
+<style scoped>
+.memory-interactions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:16px;padding-top:12px;border-top:1px solid rgba(169,108,193,.13)}.memory-interactions button{display:flex;align-items:center;gap:4px;min-height:29px;padding:0 8px;border:1px solid rgba(169,108,193,.14);border-radius:10px;background:rgba(255,255,255,.55);color:#8e7295;font-size:10px;cursor:pointer}.memory-interactions button.active{border-color:rgba(201,91,147,.3);background:linear-gradient(135deg,#ffe4ef,#eadcff);color:#a34b82}.memory-interactions small{font-size:9px}.memory-comments{margin-top:9px;padding:10px;border-radius:13px;background:rgba(249,241,250,.72)}.comment-list{display:grid;gap:7px;margin-bottom:9px}.comment-list p{display:flex;gap:6px;margin:0;color:#79677d;font-size:10px;line-height:1.5}.comment-list strong{flex:none;color:#8e5686}.comment-list span{min-width:0;overflow-wrap:anywhere}.comment-compose{display:flex;gap:6px}.comment-compose input{min-width:0;flex:1;height:31px;padding:0 9px;border:1px solid rgba(169,108,193,.18);border-radius:9px;outline:none;background:#fff;color:#624d69;font:inherit;font-size:10px}.comment-compose button{display:grid;place-items:center;width:32px;height:31px;border:0;border-radius:9px;background:linear-gradient(135deg,#8b4db9,#d85f99);color:#fff;cursor:pointer}
 </style>
 <style scoped>
 @media(max-width:650px){.editor-overlay{inset:0;padding:max(8px,env(safe-area-inset-top)) 0 max(8px,env(safe-area-inset-bottom));align-items:end}.memory-editor{display:flex;width:100%;height:auto;max-height:calc(100dvh - max(8px,env(safe-area-inset-top)) - max(8px,env(safe-area-inset-bottom)));padding:20px 16px 0;flex-direction:column;overflow-y:auto;border-radius:24px 24px 0 0!important}.memory-editor>footer{position:sticky;z-index:6;bottom:0;width:auto;margin:18px -16px 0;padding:12px 16px max(14px,env(safe-area-inset-bottom));background:#fff8fc;box-shadow:0 -10px 28px rgba(84,48,96,.09)}.memory-editor>footer>button{min-height:48px}.memory-editor>footer>.save-button{min-width:0;flex:1;justify-content:center;white-space:nowrap}}

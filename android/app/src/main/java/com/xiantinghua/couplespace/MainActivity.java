@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        registerPlugin(CallControlsPlugin.class);
         boolean audioMissing = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED;
         boolean cameraMissing = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)

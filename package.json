@@ -15,6 +15,9 @@
     "preview": "nuxt preview",
     "desktop:dev": "electron desktop/main.cjs",
     "desktop:exe": "electron-builder --win nsis",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
@@ -22,25 +25,34 @@
     "@capacitor/core": "^8.4.1",
     "@capacitor/geolocation": "^8.0.0",
     "@capacitor/local-notifications": "^8.2.1",
+    "@capacitor/push-notifications": "^8.1.2",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
     "@fontsource-variable/manrope": "^5.2.8",
     "@fontsource-variable/nunito-sans": "^5.2.7",
     "@lucide/vue": "^1.24.0",
     "@supabase/supabase-js": "^2.110.2",
-    "@zegocloud/zego-uikit-prebuilt": "^2.17.3",
+    "@uppy/core": "^5.2.0",
+    "@uppy/golden-retriever": "^5.2.1",
     "leaflet": "^1.9.4",
     "nuxt": "^4.4.8",
     "three": "^0.185.1",
+    "tus-js-client": "^4.3.1",
     "vue": "^3.5.39",
     "vue-router": "^5.1.0",
-    "zego-express-engine-webrtc": "^3.12.0"
+    "zego-express-engine-webrtc": "^3.12.220"
+  },
+  "overrides": {
+    "protobufjs": "7.6.5"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.1",
+    "@playwright/test": "^1.62.0",
     "electron": "^43.1.0",
     "electron-builder": "^26.15.3",
-    "typescript": "^7.0.2"
+    "happy-dom": "^20.11.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
   "build": {
     "appId": "com.xiantinghua.couplespace.desktop",

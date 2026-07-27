@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { CalendarDays, Check, Edit3, Film, Gift, Heart, LoaderCircle, Map, MoreHorizontal, Plus, Trash2, X } from '@lucide/vue'
+import { ArrowLeft, CalendarDays, Check, Edit3, Film, Gift, Heart, LoaderCircle, Map, MoreHorizontal, Plus, Trash2, X } from '@lucide/vue'
 import type { ListCategory,ListPriority,TogetherItem } from '~/composables/useTogetherList'
 const{items,listLoading,loadItems,createItem,updateItem,toggleItem,deleteItem}=useTogetherList();const filter=ref<'all'|ListCategory>('all');const editorOpen=ref(false);const editing=ref<TogetherItem|null>(null);const title=ref('');const note=ref('');const category=ref<ListCategory>('wish');const priority=ref<ListPriority>('normal');const plannedDate=ref('');const busy=ref(false);const error=ref('');const menuId=ref<string|null>(null)
+const emit=defineEmits<{back:[]}>()
 const categories=[{id:'all',label:'全部',icon:Heart},{id:'wish',label:'愿望',icon:Gift},{id:'travel',label:'旅行',icon:Map},{id:'movie',label:'电影',icon:Film},{id:'date',label:'约会',icon:CalendarDays}] as const
 const visible=computed(()=>filter.value==='all'?items.value:items.value.filter(x=>x.category===filter.value));const done=computed(()=>items.value.filter(x=>x.completed).length);const progress=computed(()=>items.value.length?Math.round(done.value/items.value.length*100):0)
 onMounted(loadItems)
@@ -12,7 +13,7 @@ async function remove(item:TogetherItem){if(confirm('确定删除这项共同计
 function categoryMeta(id:ListCategory){return categories.find(x=>x.id===id)!}
 function formatDate(date:string){if(!date)return'';return new Intl.DateTimeFormat('zh-CN',{month:'short',day:'numeric'}).format(new Date(`${date}T12:00:00`))}
 </script>
-<template><section class="list-view"><header class="list-header"><div><p class="eyebrow">TOGETHER LIST</p><h1>共同清单</h1><span>把想做的事写下来，然后一件件一起完成。</span></div><button type="button" @click="openCreate"><Plus :size="18"/> 添加计划</button></header>
+<template><button class="page-back standalone-page-back" type="button" aria-label="返回首页" title="返回首页" @click="emit('back')"><ArrowLeft :size="17"/><span>首页</span></button><section class="list-view"><header class="list-header"><div><p class="eyebrow">TOGETHER LIST</p><h1>共同清单</h1><span>把想做的事写下来，然后一件件一起完成。</span></div><button type="button" @click="openCreate"><Plus :size="18"/> 添加计划</button></header>
 <section class="progress-panel"><div class="progress-copy"><span>OUR PROGRESS</span><strong>{{progress}}%</strong><p>已经一起完成 {{done}} 件，还有 {{items.length-done}} 件等着我们。</p></div><div class="progress-ring" :style="{'--progress':`${progress*3.6}deg`}"><div><Heart :size="20" fill="currentColor"/></div></div><div class="progress-line"><span :style="{width:`${progress}%`}"/></div></section>
 <nav class="category-tabs"><button v-for="cat in categories" :key="cat.id" :class="{active:filter===cat.id}" type="button" @click="filter=cat.id"><component :is="cat.icon" :size="17"/><span>{{cat.label}}</span><small>{{cat.id==='all'?items.length:items.filter(x=>x.category===cat.id).length}}</small></button></nav>
 <div v-if="listLoading" class="list-state"><LoaderCircle class="spin" :size="24"/> 正在同步共同计划</div><div v-else-if="!visible.length" class="list-state empty"><Gift :size="36"/><h3>这里还没有计划</h3><p>从一个小愿望开始，慢慢填满两个人的清单。</p><button type="button" @click="openCreate">添加第一项</button></div>

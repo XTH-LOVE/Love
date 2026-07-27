@@ -1,4 +1,6 @@
 import { notifySystem } from './useSystemAlerts'
+import { hideNativeCallOverlay, showNativeCallOverlay, startNativeCallService, stopNativeCallService } from './useAndroidCallControls'
+import { extractZegoErrorCode, validateZegoAuth, zegoErrorMessage } from '~/utils/zegoDiagnostics'
 
 export type LiveMicStatus = 'idle' | 'broadcasting' | 'listening'
 
@@ -24,7 +26,9 @@ let startInFlight = false
 let listenInFlight = false
 
 function readableError(error: any, fallback: string) {
-  const code = Number(error?.code ?? error?.errorCode ?? 0)
+  const code = extractZegoErrorCode(error)
+  const zegoMessage = zegoErrorMessage(code)
+  if (zegoMessage) return zegoMessage
   const message = String(error?.message || error?.msg || '').toLowerCase()
   if (code === 1102026 || message.includes('cancel login')) return 'ZEGO 登录被取消，上一条连接正在释放，请等待 1 秒后重试。'
   if (typeof error === 'string' && error.trim()) return error
@@ -103,8 +107,8 @@ export function useCoupleLiveMic() {
       }
       throw new Error(detail)
     }
-    if (!data?.token || !data?.appId) throw new Error(data?.error || 'ZEGO Token 响应不完整')
-    return { token: String(data.token), appId: Number(data.appId), roomId: String(data.roomId || targetRoom) }
+    if (data?.error) throw new Error(String(data.error))
+    return validateZegoAuth({ ...data, roomId: String(data?.roomId || targetRoom) }, Number(config.public.zegoAppId || 0))
   }
 
   async function ensureEngine(appId: number) {
@@ -238,6 +242,8 @@ export function useCoupleLiveMic() {
     try {
       await ensureLiveChannel()
       await joinRoom(true)
+      void startNativeCallService('audio')
+      void showNativeCallOverlay('正在开麦，对方可直接收听')
       await broadcast('live-start', { roomId, userName: profile.value?.displayName || 'TA' })
       void notifySystem('已开始开麦', '对方无需接听即可收听', 2102)
     } catch (error: any) {
@@ -272,6 +278,8 @@ export function useCoupleLiveMic() {
   }
 
   function cleanupRoom() {
+    void stopNativeCallService()
+    void hideNativeCallOverlay()
     if (localStream && engine && localStreamId) engine.stopPublishingStream(localStreamId)
     if (localStream && engine) engine.destroyStream(localStream)
     if (roomId && engine) engine.logoutRoom(roomId)

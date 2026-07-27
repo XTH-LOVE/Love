@@ -2,6 +2,8 @@ type CallStatus = 'idle' | 'calling' | 'ringing' | 'connected'
 type CallMode = 'audio' | 'video'
 
 import { notifySystem, requestSystemAlerts } from './useSystemAlerts'
+import { hideNativeCallOverlay, showNativeCallOverlay, startNativeCallService, startNativeIncomingAlert, stopNativeCallService, stopNativeIncomingAlert } from './useAndroidCallControls'
+import { extractZegoErrorCode, validateZegoAuth, zegoErrorMessage } from '~/utils/zegoDiagnostics'
 
 const callStatus = ref<CallStatus>('idle')
 const callError = ref('')
@@ -23,15 +25,21 @@ let pendingInvite = false
 let pendingCallMode: CallMode = 'audio'
 let activeCallId = ''
 let pendingInviteId = ''
+let callRecordId = ''
+let callConnectedAt: number | null = null
 let offerRetryTimer: ReturnType<typeof setInterval> | null = null
 let ringtoneContext: AudioContext | null = null
 let ringtoneTimer: ReturnType<typeof setInterval> | null = null
+let ringtoneGeneration = 0
 let channelReconnectTimer: ReturnType<typeof setTimeout> | null = null
 let channelReconnectAttempt = 0
 let callListenersReady = false
 let callOnlineHandler: (() => void) | null = null
 
 function readableCallError(error: any, fallback: string) {
+  const code = extractZegoErrorCode(error)
+  const zegoMessage = zegoErrorMessage(code)
+  if (zegoMessage) return zegoMessage
   if (typeof error === 'string' && error.trim()) return error
   const detail = [error?.message, error?.msg, error?.errorMessage, error?.extendedData]
     .find(value => typeof value === 'string' && value.trim())
@@ -51,9 +59,12 @@ function readableMediaError(error: any, mode: CallMode) {
 }
 
 function stopRingtone() {
+  ringtoneGeneration += 1
   if (ringtoneTimer) clearInterval(ringtoneTimer)
   ringtoneTimer = null
   if (ringtoneContext) { void ringtoneContext.close().catch(() => undefined); ringtoneContext = null }
+  void stopNativeIncomingAlert()
+  void hideNativeCallOverlay()
 }
 
 function queueCallChannelReconnect(reconnect: () => Promise<void>, canReconnect: () => boolean) {
@@ -79,13 +90,28 @@ function playRingtonePulse() {
 
 async function startRingtone(name: string, mode: CallMode) {
   if (ringtoneTimer) return
+  const generation = ++ringtoneGeneration
   void requestSystemAlerts()
+  void startNativeCallService(mode)
+  void showNativeCallOverlay(`${name || 'TA'} 正在${mode === 'video' ? '视频' : '语音'}来电`)
+  if (typeof window !== 'undefined') {
+    try {
+      const { isNativeAndroid } = await import('./useAndroidCallControls')
+      if (isNativeAndroid()) {
+        await startNativeIncomingAlert()
+        if (generation !== ringtoneGeneration) { await stopNativeIncomingAlert(); return }
+        void notifySystem(`${name || 'TA'} 发来${mode === 'video' ? '视频' : '语音'}来电`, '点击应用内的接听按钮接通通话', 2001)
+        return
+      }
+    } catch { /* Fall back to the browser tone below. */ }
+  }
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate?.([350, 180, 350, 700])
   const AudioContextCtor = globalThis.AudioContext || (globalThis as any).webkitAudioContext
   if (!AudioContextCtor) return
   try {
     ringtoneContext = new AudioContextCtor()
     await ringtoneContext.resume().catch(() => undefined)
+    if (generation !== ringtoneGeneration) { await ringtoneContext.close().catch(() => undefined); ringtoneContext = null; return }
     playRingtonePulse()
     ringtoneTimer = setInterval(playRingtonePulse, 1100)
   } catch { stopRingtone() }
@@ -118,6 +144,13 @@ export function useCoupleCall() {
   const { $supabase } = useNuxtApp()
   const config = useRuntimeConfig()
   const { profile, demoMode } = useCoupleAuth()
+  const { createCallRecord, markCallConnected, finishCallRecord } = useCallHistory()
+
+  async function markActiveCallRecordConnected() {
+    if (!callRecordId || callConnectedAt) return
+    callConnectedAt = Date.now()
+    await markCallConnected(callRecordId).catch(() => undefined)
+  }
 
   function roomId() { return `love-home-${profile.value?.coupleId || 'demo'}` }
 
@@ -125,6 +158,13 @@ export function useCoupleCall() {
     if (!signalChannel) throw new Error('通话信令尚未连接')
     const status = await signalChannel.send({ type: 'broadcast', event, payload: { ...payload, senderId: profile.value?.id } })
     if (status !== 'ok') throw new Error(`通话信令发送失败（${status || 'unknown'}）`)
+  }
+
+  async function sendIncomingCallPush(mode: CallMode, callId: string) {
+    if (!$supabase || !profile.value?.coupleId) return
+    await $supabase.functions.invoke('send-call-push', {
+      body: { coupleId: profile.value.coupleId, callId, mode, callerName: profile.value.displayName || 'TA' },
+    }).catch(() => undefined)
   }
 
   function stopOfferRetry() {
@@ -157,7 +197,7 @@ export function useCoupleCall() {
         try { await joinZegoRoom(callMode.value) } catch (error: any) { callError.value = readableCallError(error, '云通话连接失败'); cleanup() }
       })
       .on('broadcast', { event: 'hang-up' }, () => cleanup())
-      .on('broadcast', { event: 'reject' }, () => { callError.value = '对方暂时无法接听'; cleanup() })
+      .on('broadcast', { event: 'reject' }, () => { callError.value = '对方暂时无法接听'; cleanup('declined') })
     channelReady = new Promise<void>((resolve, reject) => {
       signalChannel.subscribe((status: string) => {
         if (status === 'SUBSCRIBED') { channelReconnectAttempt = 0; resolve() }
@@ -191,33 +231,8 @@ export function useCoupleCall() {
       }
       throw new Error(detail)
     }
-    if (!data?.token || !data?.appId) throw new Error(data?.error || 'ZEGO Token 响应不完整，请检查 Edge Function Secrets')
-    const tokenAppId = Number(data.appId)
-    const configuredAppId = Number(config.public.zegoAppId || 0)
-    if (!Number.isFinite(tokenAppId) || tokenAppId <= 0) throw new Error('ZEGO Token 返回的 AppID 无效')
-    if (configuredAppId && tokenAppId !== configuredAppId) {
-      throw new Error(`ZEGO AppID 不一致：网页配置为 ${configuredAppId}，Edge Function 返回为 ${tokenAppId}`)
-    }
-    return { ...data, appId: tokenAppId, roomId: String(data.roomId || roomId()) } as {
-      token: string
-      legacyToken?: string
-      appId: number
-      roomId: string
-    }
-  }
-
-  async function getDevelopmentKitToken(auth: { appId: number; roomId: string }) {
-    const appSign = String(config.public.zegoAppSign || '')
-    if (!appSign || !profile.value?.id) return ''
-    const { ZegoUIKitPrebuilt } = await import('@zegocloud/zego-uikit-prebuilt')
-    return ZegoUIKitPrebuilt.generateKitTokenForTest(
-      auth.appId,
-      appSign,
-      auth.roomId,
-      profile.value.id,
-      profile.value.displayName || 'Love小家',
-      3600,
-    )
+    if (data?.error) throw new Error(String(data.error))
+    return validateZegoAuth({ ...data, roomId: String(data?.roomId || roomId()) }, Number(config.public.zegoAppId || 0))
   }
 
   async function ensureZego(appIdOverride?: number) {
@@ -237,7 +252,9 @@ export function useCoupleCall() {
             remoteMediaStreams.set(stream.streamID, remote)
             if (remoteAudio.value) { remoteAudio.value.srcObject = remote; void remoteAudio.value.play().catch(() => undefined) }
             if (remoteVideo.value && callMode.value === 'video') { remoteVideo.value.srcObject = remote; void remoteVideo.value.play().catch(() => undefined) }
+            stopRingtone()
             callStatus.value = 'connected'
+            void markActiveCallRecordConnected()
             void attachVideoElements()
           } catch (error: any) {
             callError.value = readableCallError(error, '远端音视频流播放失败')
@@ -264,21 +281,12 @@ export function useCoupleCall() {
     callMode.value = mode
     const userId = String(profile.value?.id || '').trim()
     if (!userId) throw new Error('当前账号身份尚未加载完成，请刷新页面后再发起通话')
-    let auth: { token: string; legacyToken?: string; appId: number; roomId: string }
-    let serverTokenError: unknown = null
-    try {
-      auth = await getZegoToken()
-    } catch (error) {
-      serverTokenError = error
-      const fallbackAppId = Number(config.public.zegoAppId || 0)
-      if (!config.public.zegoAppSign || !fallbackAppId) throw error
-      auth = { token: '', appId: fallbackAppId, roomId: roomId() }
-    }
+    const auth = await getZegoToken()
     await ensureZego(auth.appId)
     zegoRoomId = auth.roomId
     const user = { userID: userId, userName: profile.value?.displayName || 'Love小家' }
     let loggedIn = false
-    let lastLoginError: any = serverTokenError
+    let lastLoginError: any = null
     const tokens: Array<{ label: string; value: string }> = []
     if (auth.token) tokens.push({ label: '官方 Token04', value: auth.token })
     if (auth.legacyToken) tokens.push({ label: 'UIKit 兼容 Token', value: auth.legacyToken })
@@ -292,16 +300,12 @@ export function useCoupleCall() {
       } catch (error: any) {
         lastLoginError = error
         loginErrors.push(`${candidate.label}: ${readableCallError(error, '登录失败')}`)
-        const errorCode = Number(error?.errorCode ?? error?.code ?? 0)
+        const errorCode = extractZegoErrorCode(error)
         if (errorCode !== 1100001 && errorCode !== 1102016) throw error
       }
     }
     if (!loggedIn) {
-      const loginDetail = readableCallError(lastLoginError, 'ZEGO 房间登录失败（1102016：Token 无效，请检查 ZEGO 凭证）')
-      const tokenServiceDetail = readableCallError(serverTokenError, '')
-      if (tokenServiceDetail && tokenServiceDetail !== loginDetail && !loginDetail.includes(tokenServiceDetail)) {
-        throw new Error(`${loginDetail}；Token 服务：${tokenServiceDetail}`)
-      }
+      const loginDetail = readableCallError(lastLoginError, 'ZEGO 房间登录失败')
       throw new Error(`${loginDetail}${loginErrors.length ? `（${loginErrors.join('；')}）` : ''}`)
     }
     try {
@@ -313,6 +317,7 @@ export function useCoupleCall() {
     }
     localStreamId = `${mode}-${profile.value!.id}`
     if (!zego.startPublishingStream(localStreamId, localStream)) throw new Error(mode === 'video' ? 'ZEGO 视频发布失败' : 'ZEGO 音频发布失败')
+    stopRingtone()
     callStatus.value = 'connected'
     await attachVideoElements()
   }
@@ -326,9 +331,15 @@ export function useCoupleCall() {
       callMode.value = mode
       pendingCallMode = mode
       activeCallId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      callRecordId = activeCallId
+      callConnectedAt = null
+      void createCallRecord(activeCallId, mode).catch(() => undefined)
       callStatus.value = 'calling'
+      void startNativeCallService(mode)
+      void showNativeCallOverlay(mode === 'video' ? '视频通话拨号中' : '语音通话拨号中')
       const sendOffer = () => broadcast('offer', { callMode: mode, callId: activeCallId })
       await sendOffer()
+      void sendIncomingCallPush(mode, activeCallId)
       stopOfferRetry()
       let retries = 0
       offerRetryTimer = setInterval(() => {
@@ -365,8 +376,15 @@ export function useCoupleCall() {
     zego?.mutePublishStreamVideo(localStream, cameraOff.value)
   }
 
-  function cleanup() {
+  function cleanup(finalStatus?: 'completed' | 'cancelled' | 'declined') {
+    const recordId = callRecordId
+    const connectedAt = callConnectedAt
+    callRecordId = ''
+    callConnectedAt = null
+    if (recordId) void finishCallRecord(recordId, connectedAt, finalStatus || (connectedAt ? 'completed' : 'cancelled')).catch(() => undefined)
     stopRingtone()
+    void stopNativeCallService()
+    void hideNativeCallOverlay()
     stopOfferRetry()
     if (localStream && zego) { if (localStreamId) zego.stopPublishingStream(localStreamId); zego.destroyStream(localStream) }
     if (zegoRoomId && zego) zego.logoutRoom(zegoRoomId)
