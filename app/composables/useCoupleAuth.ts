@@ -1,6 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 
 export type CoupleStage = 'signed-out' | 'awaiting-confirmation' | 'unpaired' | 'paired'
+export type OAuthProvider = 'google' | 'github'
 
 type CoupleProfile = {
   id: string
@@ -63,6 +64,35 @@ export function useCoupleAuth() {
         return
       }
       const { error } = await $supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+    } finally { loading.value = false }
+  }
+
+  async function sendMagicLink(email: string) {
+    loading.value = true
+    try {
+      if (!$supabase) throw new Error('演示模式不支持免密链接，请切换到邮箱密码登录')
+      const normalizedEmail = email.trim().toLowerCase()
+      if (!normalizedEmail) throw new Error('请输入邮箱地址')
+      const { error } = await $supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      })
+      if (error) throw error
+    } finally { loading.value = false }
+  }
+
+  async function signInWithOAuth(provider: OAuthProvider) {
+    loading.value = true
+    try {
+      if (!$supabase) throw new Error('演示模式不支持第三方登录，请切换到邮箱或账号登录')
+      const { error } = await $supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/` },
+      })
       if (error) throw error
     } finally { loading.value = false }
   }
@@ -167,5 +197,5 @@ export function useCoupleAuth() {
     demoMode.value = false
   }
 
-  return { configured, demoMode, initialized, loading, profile, stage, initialize, signIn, signUp, signInWithAccount, signUpWithAccount, recoverAccount, resendConfirmation, updatePassword, createCouple, joinCouple, signOut }
+  return { configured, demoMode, initialized, loading, profile, stage, initialize, signIn, signUp, signInWithAccount, signUpWithAccount, sendMagicLink, signInWithOAuth, recoverAccount, resendConfirmation, updatePassword, createCouple, joinCouple, signOut }
 }
