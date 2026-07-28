@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import './chat-calls.css'
 import './chat-calls-video.css'
-import { CheckCheck, FileImage, Film, Laugh, LocateFixed, LoaderCircle, MapPin, Mic, PhoneCall, PhoneOff, Radio, RotateCcw, Send, Square, StopCircle, Video, Volume2, VolumeX, X } from '@lucide/vue'
+import { CheckCheck, FileImage, Film, Laugh, LoaderCircle, MapPin, Maximize2, Mic, PhoneCall, PhoneOff, Radio, RotateCcw, Send, Square, StopCircle, Video, Volume2, VolumeX, X } from '@lucide/vue'
 import { refreshMediaElement, revealVideoFrame } from '~/composables/useMediaUrls'
 
 const props = withDefaults(defineProps<{ mode?: 'drawer' | 'page' }>(), { mode: 'drawer' })
@@ -9,7 +9,7 @@ const emit = defineEmits<{ close: [] }>()
 const { profile } = useCoupleAuth()
 const { $supabase } = useNuxtApp()
 const { members, subscribeMembers } = useAccountManagement()
-const { messages, messagesLoading, messagesLoadingMore, messagesHasMore, loadMessages, loadOlderMessages, subscribe, send, recall, markRead, disconnect, liveLocations, broadcastLiveLocation } = useMessages()
+const { messages, messagesLoading, messagesLoadingMore, messagesHasMore, loadMessages, loadOlderMessages, subscribe, send, recall, markRead, disconnect } = useMessages()
 const { callStatus, ensureChannel, startCall, hangUp } = useCoupleCall()
 const { liveStatus, liveError, liveMuted, liveRemoteMuted, liveRemoteName, liveNeedsGesture, ensureLiveChannel, startLive, stopLive, dismissLive, toggleLiveMute, resumeLiveAudio } = useCoupleLiveMic()
 const text = ref('')
@@ -26,13 +26,11 @@ let recordStream: MediaStream | null = null
 const busy = ref(false)
 const errorMessage = ref('')
 const picker = ref<'emoji' | 'sticker' | ''>('')
+const gifInput = ref<HTMLInputElement | null>(null)
+const mediaViewer = ref<{ type: 'image' | 'video'; src: string } | null>(null)
 const scrollArea = ref<HTMLElement | null>(null)
-const sharingLocation = ref(false)
-let locationWatchId: number | string | null = null
-let nativeLocationWatch = false
 const self = computed(() => members.value.find(member => member.id === profile.value?.id))
 const partner = computed(() => members.value.find(member => member.id !== profile.value?.id))
-const partnerLiveLocation = computed(() => partner.value?.id ? liveLocations.value[partner.value.id] || null : null)
 function sender(message: typeof messages.value[number]) { return message.senderId === profile.value?.id ? self.value : partner.value }
 const emojis = ['❤️', '🥰', '😘', '🫶', '🥺', '😂', '😭', '💕', '🌸', '🌟', '🎉', '✨', '🤍', '💜', '💗', '😴', '🤗', '😳']
 const stickers = [
@@ -57,7 +55,11 @@ async function loadOlderAtTop() { if (!scrollArea.value || messagesLoadingMore.v
 function handleMessageScroll(event: Event) { const area = event.currentTarget as HTMLElement; if (area.scrollTop < 70) void loadOlderAtTop() }
 async function init() { await subscribeMembers(); await loadMessages(); await subscribe(); await ensureChannel().catch(() => undefined); await ensureLiveChannel().catch(() => undefined); await markRead(); await scrollLatest() }
 onMounted(init)
-onBeforeUnmount(() => { stopRecording(true); void stopLiveLocation(); if (preview.value) URL.revokeObjectURL(preview.value) })
+function openMedia(type: 'image' | 'video', src: string) { mediaViewer.value = { type, src }; document.body.style.overflow = 'hidden' }
+function closeMedia() { mediaViewer.value = null; document.body.style.overflow = '' }
+function handleViewerKeydown(event: KeyboardEvent) { if (event.key === 'Escape') closeMedia() }
+onMounted(() => window.addEventListener('keydown', handleViewerKeydown))
+onBeforeUnmount(() => { stopRecording(true); closeMedia(); window.removeEventListener('keydown', handleViewerKeydown); if (preview.value) URL.revokeObjectURL(preview.value) })
 watch(() => messages.value.length, async () => { await markRead(); await scrollLatest(true) })
 
 function choose(event: Event) {
@@ -75,6 +77,7 @@ function choose(event: Event) {
   preview.value = URL.createObjectURL(selected)
   picker.value = ''
 }
+function openGifPicker() { gifInput.value?.click() }
 function clearFile() { file.value = null; if (preview.value) URL.revokeObjectURL(preview.value); preview.value = '' }
 async function toggleRecording() {
   if (recording.value) { stopRecording(); return }
@@ -146,9 +149,6 @@ async function readCurrentPosition(){
   }
 }
 async function sendLocation(){if(busy.value)return;errorMessage.value='';busy.value=true;try{const coords=await readCurrentPosition();await send(`::location:${coords.latitude.toFixed(6)}:${coords.longitude.toFixed(6)}:${Math.round(coords.accuracy)}::`);await scrollLatest(true)}catch(error:any){const code=Number(error?.code);const message=String(error?.message||'');errorMessage.value=code===1?'定位权限未开启，请允许位置权限后再试':code===2?'定位信息不可用，请打开系统定位服务':code===3?'定位超时，请到室外或稍后重试':message&&message.length<140?`发送位置失败：${message}`:'发送位置失败，请稍后重试'}finally{busy.value=false}}
-async function publishLivePosition(position: { coords: GeolocationCoordinates }) { const coords=position.coords; if(!Number.isFinite(coords.latitude)||!Number.isFinite(coords.longitude))return; try { await broadcastLiveLocation({lat:coords.latitude,lng:coords.longitude,accuracy:Number.isFinite(coords.accuracy)?Math.max(0,coords.accuracy):0,sharing:true}) } catch (error:any) { errorMessage.value=error?.message||'实时位置发送失败，请检查网络后重试' } }
-async function stopLiveLocation(){const wasSharing=sharingLocation.value;if(locationWatchId!==null){try{if(nativeLocationWatch){const { Geolocation } = await import('@capacitor/geolocation');await Geolocation.clearWatch({id:String(locationWatchId)})}else if(navigator.geolocation)navigator.geolocation.clearWatch(Number(locationWatchId))}catch{}locationWatchId=null;nativeLocationWatch=false}sharingLocation.value=false;if(wasSharing){try{await broadcastLiveLocation(null)}catch(error:any){if(!import.meta.server)errorMessage.value=error?.message||'停止共享实时位置失败，请稍后重试'}}}
-async function toggleLiveLocation(){if(sharingLocation.value){await stopLiveLocation();return}errorMessage.value='';try{const { Capacitor } = await import('@capacitor/core');if(Capacitor.isNativePlatform()){const { Geolocation } = await import('@capacitor/geolocation');let permission=await Geolocation.checkPermissions();if(permission.location!=='granted')permission=await Geolocation.requestPermissions();if(permission.location!=='granted')throw {code:1};locationWatchId=await Geolocation.watchPosition({enableHighAccuracy:true,timeout:15000,maximumAge:5000},(position,error)=>{if(position)void publishLivePosition(position);else if(error)errorMessage.value='实时定位暂时不可用'}) as unknown as string;nativeLocationWatch=true}else{if(!navigator.geolocation)throw new Error('当前设备不支持定位');locationWatchId=navigator.geolocation.watchPosition(position=>void publishLivePosition(position),error=>{errorMessage.value=error.code===1?'定位权限未开启，请允许位置权限后再试':'实时定位暂时不可用'},{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}const first=await readCurrentPosition();await broadcastLiveLocation({lat:first.latitude,lng:first.longitude,accuracy:first.accuracy,sharing:true});sharingLocation.value=true}catch(error:any){await stopLiveLocation();errorMessage.value=error?.code===1?'定位权限未开启，请允许位置权限后再试':error?.message||'无法开启实时位置'}}
 async function submit() {
   if (!text.value.trim() && !file.value) return
   busy.value = true; errorMessage.value = ''
@@ -180,8 +180,6 @@ async function submit() {
         <button v-else type="button" title="停止收听" @click="dismissLive"><VolumeX :size="17" /></button>
       </div>
       <p v-if="liveError" class="live-mic-error">{{ liveError }}</p>
-      <div v-if="partnerLiveLocation" class="live-location-card"><div><LocateFixed :size="16"/><strong>{{ partner?.displayName || 'TA' }} 正在共享位置</strong><small>刚刚更新 · 精度约 {{ Math.round(partnerLiveLocation.accuracy) }} 米</small></div><LocationMap :lat="partnerLiveLocation.lat" :lng="partnerLiveLocation.lng" :accuracy="partnerLiveLocation.accuracy" live/><a :href="mapLink(partnerLiveLocation)" target="_blank" rel="noopener">在地图中打开</a></div>
-
       <div ref="scrollArea" class="message-area" @scroll.passive="handleMessageScroll">
         <div v-if="messagesLoading" class="chat-state"><LoaderCircle class="spin" :size="24" />正在加载你们的悄悄话</div>
         <div v-else-if="messagesLoadingMore" class="history-loading"><LoaderCircle class="spin" :size="14"/>正在加载更早的悄悄话</div>
@@ -192,8 +190,8 @@ async function submit() {
             <b class="sender-name">{{message.senderId===profile?.id?'我 · ':''}}{{sender(message)?.displayName||(message.senderId===profile?.id?'我':'TA')}}</b>
             <div class="bubble-row"><div class="message-avatar"><img v-if="sender(message)?.avatarUrl" :src="sender(message)?.avatarUrl" alt="发送者头像"><span v-else>{{sender(message)?.displayName?.slice(0,1)||(message.senderId===profile?.id?'我':'TA')}}</span></div><div v-if="stickerData(message.content)" class="sticker-message"><b>{{ stickerArt(stickerData(message.content)!.id) }}</b><span>{{ stickerData(message.content)!.label }}</span></div>
             <div v-else class="bubble" :class="{ 'has-media': message.mediaUrl, 'voice-bubble': message.mediaType === 'audio', 'location-bubble': !!locationData(message.content) }">
-              <img v-if="message.mediaUrl && message.mediaType === 'image'" :src="message.mediaUrl" alt="聊天图片" @error="refreshMessageMedia($event, message)">
-              <video v-if="message.mediaUrl && message.mediaType === 'video'" :src="message.mediaUrl" controls playsinline preload="auto" @loadedmetadata="revealVideo" @error="videoFailed; refreshMessageMedia($event, message)" />
+              <div v-if="message.mediaUrl && message.mediaType === 'image'" class="media-frame"><img :src="message.mediaUrl" alt="聊天图片" @click="openMedia('image', message.mediaUrl)" @error="refreshMessageMedia($event, message)"><button type="button" class="media-expand" title="放大查看" aria-label="放大查看图片" @click.stop="openMedia('image', message.mediaUrl)"><Maximize2 :size="16" /></button></div>
+              <div v-if="message.mediaUrl && message.mediaType === 'video'" class="media-frame"><video :src="message.mediaUrl" controls playsinline preload="auto" @loadedmetadata="revealVideo" @error="videoFailed; refreshMessageMedia($event, message)" /><button type="button" class="media-expand" title="放大查看" aria-label="放大查看视频" @click.stop="openMedia('video', message.mediaUrl)"><Maximize2 :size="16" /></button></div>
               <button v-if="message.mediaUrl && message.mediaType === 'audio'" class="voice-player" type="button" :class="{playing:playingAudio===message.id}" @click="toggleAudio(message.id,$event)"><span class="voice-waves"><i/><i/><i/></span><b>{{audioDurations[message.id]||'...'}}″</b><audio :src="message.mediaUrl" preload="metadata" @loadedmetadata="audioReady(message.id,$event)" @ended="playingAudio=''"/></button>
               <div v-if="locationData(message.content)" class="location-card"><LocationMap :lat="locationData(message.content)?.lat ?? 0" :lng="locationData(message.content)?.lng ?? 0" :accuracy="locationAccuracy(message.content)"/><div><span><MapPin :size="15"/> {{ sender(message)?.displayName || 'TA' }} 分享了当前位置</span><small>定位精度约 {{ locationAccuracy(message.content) }} 米 · {{ locationLabel(locationData(message.content)) }}</small><a :href="mapLink(locationData(message.content))" target="_blank" rel="noopener">在地图中打开</a></div></div>
               <p v-else-if="message.content">{{ message.content }}</p>
@@ -206,7 +204,7 @@ async function submit() {
         <img v-if="previewType === 'image'" :src="preview" alt="待发送图片">
         <video v-else-if="previewType === 'video'" :src="preview" muted playsinline preload="auto" @loadedmetadata="revealVideo" @error="videoFailed" />
         <button v-else class="voice-player preview-voice" type="button" :class="{playing:playingAudio==='preview'}" @click="toggleAudio('preview',$event)"><span class="voice-waves"><i/><i/><i/></span><b>{{audioDurations.preview||recordSeconds||'...'}}″</b><audio :src="preview" preload="metadata" @loadedmetadata="audioReady('preview',$event)" @ended="playingAudio=''"/></button>
-        <span>{{ previewType === 'audio' ? '语音已录好' : previewType === 'video' ? '准备发送短视频' : '准备发送照片' }}</span>
+        <span>{{ previewType === 'audio' ? '语音已录好' : previewType === 'video' ? '准备发送短视频' : file?.type === 'image/gif' ? '准备发送 GIF 表情包' : '准备发送照片' }}</span>
         <button type="button" aria-label="移除附件" @click="clearFile"><X :size="15" /></button>
       </div>
       <p v-if="errorMessage" class="send-error">{{ errorMessage }}</p>
@@ -214,17 +212,24 @@ async function submit() {
 
       <form @submit.prevent="submit">
         <div class="chat-tools">
-          <label title="发送照片"><FileImage :size="21" /><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden @change="choose"></label>
+          <label title="发送照片"><FileImage :size="21" /><input type="file" accept="image/jpeg,image/png,image/webp" hidden @change="choose"></label>
+          <button type="button" class="gif-button" title="发送 GIF 表情包" aria-label="发送 GIF 表情包" @click="openGifPicker">GIF</button><input ref="gifInput" type="file" accept="image/gif" hidden @change="choose">
           <label title="发送短视频"><Film :size="21" /><input type="file" accept="video/mp4,video/webm,video/quicktime" hidden @change="choose"></label>
           <button type="button" title="录制语音" :class="{ active: recording }" @click="toggleRecording"><Square v-if="recording" :size="18" fill="currentColor"/><Mic v-else :size="21"/></button>
           <button type="button" title="发送当前位置（仅你们可见）" aria-label="发送当前位置" :disabled="busy" @click="sendLocation"><MapPin :size="21"/></button>
-          <button type="button" :title="sharingLocation ? '停止共享实时位置' : '共享实时位置'" aria-label="共享实时位置" :class="{active: sharingLocation}" :disabled="busy" @click="toggleLiveLocation"><LocateFixed :size="21"/></button>
           <span v-if="recording" class="recording-time">录音 {{ recordSeconds }} 秒</span>
           <button type="button" title="选择表情" :class="{ active: picker === 'emoji' }" @click="picker = picker === 'emoji' ? '' : 'emoji'"><Laugh :size="21" /></button>
         </div>
         <div class="composer"><textarea v-model="text" rows="1" maxlength="2000" placeholder="写一句只想让对方看见的话..." @keydown.enter.exact.prevent="submit" /><button class="send-button" type="submit" :disabled="busy || (!text.trim() && !file)"><LoaderCircle v-if="busy" class="spin" :size="19" /><Send v-else :size="19" /></button></div>
       </form>
     </section>
+    <Teleport to="body">
+      <div v-if="mediaViewer" class="media-viewer" role="dialog" aria-modal="true" aria-label="媒体预览" @click.self="closeMedia">
+        <button type="button" class="media-viewer-close" title="关闭预览" aria-label="关闭预览" @click="closeMedia"><X :size="20" /></button>
+        <img v-if="mediaViewer.type === 'image'" :src="mediaViewer.src" alt="放大后的聊天图片">
+        <video v-else :src="mediaViewer.src" controls autoplay playsinline preload="auto" />
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -241,6 +246,7 @@ form{position:relative;z-index:2;padding:12px 16px 15px;border-top:1px solid rgb
 <style scoped>
 .bubble audio{display:block;width:min(260px,70vw);height:42px}.send-preview audio{width:210px;height:42px}.recording-time{align-self:center;color:#c34f7a;font-size:10px;font-weight:750}@media(max-width:700px){.chat-tools{align-items:center;overflow-x:auto}.bubble audio{width:min(240px,68vw)}form{background:rgba(255,250,255,.98);backdrop-filter:none;-webkit-backdrop-filter:none}}
 .message-meta>button{display:grid;place-items:center;width:26px;height:26px;margin-left:1px;padding:0;border:0;border-radius:50%;background:transparent;color:#aa91ad;cursor:pointer}.message-meta>button:active{background:#f0e1f3;color:#824b93}.message-meta .read-check{color:#a468b0}
+.media-frame{position:relative;max-width:420px}.media-frame img,.media-frame video{cursor:zoom-in}.media-expand{position:absolute;right:10px;bottom:10px;display:grid;place-items:center;width:32px;height:32px;border:1px solid rgba(255,255,255,.8);border-radius:10px;background:rgba(49,36,57,.62);color:#fff;cursor:pointer;opacity:.9}.media-expand:hover{background:rgba(49,36,57,.82)}.media-viewer{position:fixed;z-index:500;inset:0;display:grid;place-items:center;padding:clamp(20px,5vw,70px);background:rgba(22,15,29,.88);backdrop-filter:blur(18px)}.media-viewer img,.media-viewer video{display:block;width:auto;max-width:100%;height:auto;max-height:calc(100dvh - 40px);border-radius:18px;object-fit:contain;box-shadow:0 24px 80px rgba(0,0,0,.4)}.media-viewer-close{position:absolute;z-index:1;top:max(18px,env(safe-area-inset-top));right:max(18px,env(safe-area-inset-right));display:grid;place-items:center;width:42px;height:42px;border:1px solid rgba(255,255,255,.45);border-radius:14px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer}.gif-button{font-size:11px!important;font-weight:850;letter-spacing:.2px}
 .sender-name{max-width:220px;overflow:hidden;margin:0 5px 4px 50px;color:#8d718f;font-size:9px;font-weight:750;text-overflow:ellipsis;white-space:nowrap}.mine .sender-name{margin-right:50px;margin-left:5px}.bubble-row{display:flex;align-items:flex-start;gap:8px;max-width:100%}.mine .bubble-row{flex-direction:row-reverse}.message-meta{display:flex;align-items:center;gap:4px;margin-top:5px;margin-left:50px;color:#a394a7;font-size:9px}.mine .message-meta{margin-right:50px;margin-left:0}.message-avatar{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;overflow:hidden;border:2px solid rgba(255,255,255,.9);border-radius:50%;background:linear-gradient(135deg,#ad78ca,#ea8bb3);color:#fff;font-size:12px;font-weight:800;box-shadow:0 5px 14px rgba(104,63,117,.14)}.message-avatar img{width:100%;height:100%;object-fit:cover}@media(max-width:650px){.bubble-row{gap:6px}.message-avatar{width:40px;height:40px;flex-basis:40px}.sender-name{margin-left:46px}.mine .sender-name{margin-right:46px}.message-meta{margin-left:46px}.mine .message-meta{margin-right:46px}.bubble{min-height:40px}}
 .bubble.voice-bubble{min-width:138px;padding:0;overflow:hidden}.voice-player{display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;height:44px;padding:0 14px;border:0;border-radius:inherit;background:transparent;color:#76507d;cursor:pointer}.mine .voice-player{flex-direction:row-reverse;color:#743e83}.voice-player audio{display:none}.voice-player b{min-width:28px;color:#987f9c;font-size:10px;font-weight:700;text-align:right}.mine .voice-player b{text-align:left}.voice-waves{display:flex;align-items:center;gap:2px;width:24px;height:22px}.mine .voice-waves{flex-direction:row-reverse}.voice-waves i{display:block;width:3px;border-radius:3px;background:currentColor;transform-origin:center}.voice-waves i:nth-child(1){height:7px;opacity:.62}.voice-waves i:nth-child(2){height:13px;opacity:.8}.voice-waves i:nth-child(3){height:19px}.voice-player.playing .voice-waves i{animation:voice-wave .7s ease-in-out infinite alternate}.voice-player.playing .voice-waves i:nth-child(2){animation-delay:.12s}.voice-player.playing .voice-waves i:nth-child(3){animation-delay:.24s}@keyframes voice-wave{to{transform:scaleY(.38);opacity:.45}}.preview-voice{width:145px;border-radius:18px;background:linear-gradient(135deg,#ead6f7,#fbd9e7)}
 .bubble video,.send-preview video{background:linear-gradient(135deg,#eadcf3,#f7dce8)}.bubble video.media-failed,.send-preview video.media-failed{min-height:120px;background:linear-gradient(135deg,#e8d8f1,#f5dce7)}

@@ -224,6 +224,8 @@ export async function refreshMediaElement(event: Event, supabase: SupabaseLike |
 
 /** Shrink camera images before upload so future loads are CDN-sized by default. */
 export async function prepareImageForUpload(file: File, maxSide = 1920, quality = 0.82) {
+  // Keep animated GIFs intact; canvas compression would flatten them to one frame.
+  if (file.type === 'image/gif') return file
   if (!import.meta.client || !file.type.startsWith('image/') || typeof createImageBitmap !== 'function') return file
   try {
     const bitmap = await createImageBitmap(file)
