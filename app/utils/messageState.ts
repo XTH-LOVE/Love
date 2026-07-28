@@ -68,7 +68,7 @@ export function parseLiveLocation(payload: any, selfId?: string): { senderId: st
   const lat = Number(rawLat)
   const lng = Number(rawLng)
   const accuracy = Number(rawAccuracy)
-  if (![lat, lng, accuracy].every(Number.isFinite)) return null
+  if (![lat, lng, accuracy].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null
   return {
     senderId,
     stopped: false,
