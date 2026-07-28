@@ -25,8 +25,6 @@ let pendingInvite = false
 let pendingCallMode: CallMode = 'audio'
 let activeCallId = ''
 let pendingInviteId = ''
-let callRecordId = ''
-let callConnectedAt: number | null = null
 let offerRetryTimer: ReturnType<typeof setInterval> | null = null
 let ringtoneContext: AudioContext | null = null
 let ringtoneTimer: ReturnType<typeof setInterval> | null = null
@@ -144,14 +142,6 @@ export function useCoupleCall() {
   const { $supabase } = useNuxtApp()
   const config = useRuntimeConfig()
   const { profile, demoMode } = useCoupleAuth()
-  const { createCallRecord, markCallConnected, finishCallRecord } = useCallHistory()
-
-  async function markActiveCallRecordConnected() {
-    if (!callRecordId || callConnectedAt) return
-    callConnectedAt = Date.now()
-    await markCallConnected(callRecordId).catch(() => undefined)
-  }
-
   function roomId() { return `love-home-${profile.value?.coupleId || 'demo'}` }
 
   async function broadcast(event: string, payload: Record<string, unknown> = {}) {
@@ -197,7 +187,7 @@ export function useCoupleCall() {
         try { await joinZegoRoom(callMode.value) } catch (error: any) { callError.value = readableCallError(error, '云通话连接失败'); cleanup() }
       })
       .on('broadcast', { event: 'hang-up' }, () => cleanup())
-      .on('broadcast', { event: 'reject' }, () => { callError.value = '对方暂时无法接听'; cleanup('declined') })
+      .on('broadcast', { event: 'reject' }, () => { callError.value = '对方暂时无法接听'; cleanup() })
     channelReady = new Promise<void>((resolve, reject) => {
       signalChannel.subscribe((status: string) => {
         if (status === 'SUBSCRIBED') { channelReconnectAttempt = 0; resolve() }
@@ -254,7 +244,6 @@ export function useCoupleCall() {
             if (remoteVideo.value && callMode.value === 'video') { remoteVideo.value.srcObject = remote; void remoteVideo.value.play().catch(() => undefined) }
             stopRingtone()
             callStatus.value = 'connected'
-            void markActiveCallRecordConnected()
             void attachVideoElements()
           } catch (error: any) {
             callError.value = readableCallError(error, '远端音视频流播放失败')
@@ -331,9 +320,6 @@ export function useCoupleCall() {
       callMode.value = mode
       pendingCallMode = mode
       activeCallId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
-      callRecordId = activeCallId
-      callConnectedAt = null
-      void createCallRecord(activeCallId, mode).catch(() => undefined)
       callStatus.value = 'calling'
       void startNativeCallService(mode)
       void showNativeCallOverlay(mode === 'video' ? '视频通话拨号中' : '语音通话拨号中')
@@ -376,12 +362,7 @@ export function useCoupleCall() {
     zego?.mutePublishStreamVideo(localStream, cameraOff.value)
   }
 
-  function cleanup(finalStatus?: 'completed' | 'cancelled' | 'declined') {
-    const recordId = callRecordId
-    const connectedAt = callConnectedAt
-    callRecordId = ''
-    callConnectedAt = null
-    if (recordId) void finishCallRecord(recordId, connectedAt, finalStatus || (connectedAt ? 'completed' : 'cancelled')).catch(() => undefined)
+  function cleanup() {
     stopRingtone()
     void stopNativeCallService()
     void hideNativeCallOverlay()

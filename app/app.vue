@@ -70,7 +70,6 @@ const { memories, loadMemories } = useMemories()
 const { allPhotos, loadAlbums } = useAlbums()
 const { items: togetherItems, loadItems, toggleItem } = useTogetherList()
 const { members, loadMembers, subscribeMembers, disconnectMembers } = useAccountManagement()
-const { loadCallHistory, subscribeCallHistory, disconnectCallHistory } = useCallHistory()
 const { partnerOnline, connectPresence, disconnectPresence } = useCouplePresence()
 const { messages, unreadCount, loadMessages, subscribe: subscribeMessages, markRead, disconnect: disconnectMessages } = useMessages()
 const { callStatus, ensureChannel: ensureCallChannel, disconnectCall } = useCoupleCall()
@@ -140,8 +139,6 @@ async function loadHomeData() {
   ].map(task => settleWithin(task)))
   await Promise.allSettled([
     subscribeMembers(),
-    loadCallHistory(),
-    subscribeCallHistory(),
     syncAnniversaryReminders(anniversaries.value),
     loadCoupleCover(),
     connectPresence(),
@@ -190,8 +187,6 @@ async function reconnectSpaceServices() {
   await Promise.allSettled([
     connectPresence(),
     subscribeMessages(),
-    loadCallHistory(),
-    subscribeCallHistory(),
     ensureCallChannel(),
     ensureLiveChannel(),
   ])
@@ -254,7 +249,6 @@ watch(stage, async value => {
     await disconnectPresence()
     await disconnectMessages()
     await disconnectMembers()
-    await disconnectCallHistory()
   }
 })
 watch(callStatus, value => { if (value === 'ringing') chatVisible.value = true })
@@ -275,7 +269,7 @@ function revealHomeVideo(event:Event){const video=event.currentTarget as HTMLVid
 function homeVideoReady(event: Event) { revealVideoFrame(event) }
 async function refreshHomeMedia(event: Event, path: string, bucket?: string, mediaType: 'image' | 'video' = 'image') { await refreshMediaElement(event, $supabase, path, bucket, mediaType === 'image' ? { width: 640, height: 640, resize: 'contain', quality: 68 } : undefined) }
 async function refreshHero(event: Event) { await refreshMediaElement(event, $supabase, homeHeroPath.value, homeHeroPath.value.includes('/album-media/') ? 'album-media' : 'memory-photos', { width: 1400, height: 900, resize: 'cover', quality: 84 }) }
-onBeforeUnmount(async () => { window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectCallHistory() })
+onBeforeUnmount(async () => { window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers() })
 
 async function openChat() {
   messageToast.value = null
@@ -788,7 +782,6 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .app-shell :is(.timeline-header,.album-header,.list-header,.ann-header,.pet-house-header) > div:first-of-type { min-width:0; }
 .app-shell :is(.album-view,.list-view,.ann-view,.heart-ai,.pet-house-view) { position:relative; }
 .standalone-page-back { position:absolute;z-index:3;top:10px;left:0; }
-.chat-page-back { display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(133,92,146,.16);border-radius:13px;background:rgba(255,255,255,.58);color:#76547f;cursor:pointer; }
 .app-shell::before { content: ''; position: fixed; z-index: -1; inset: 0; background: linear-gradient(115deg, rgba(234,224,241,.38), transparent 42%); pointer-events: none; }
 .glass-panel { border-color: rgba(80,63,89,.09); background: rgba(255,255,255,.86); box-shadow: 0 8px 24px rgba(48,37,54,.06); backdrop-filter: blur(12px) saturate(112%); -webkit-backdrop-filter: blur(12px) saturate(112%); }
 .sidebar { inset: 18px auto 18px 18px; width: 82px; padding: 17px 10px 12px; border-radius: 18px; }
@@ -889,5 +882,5 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .hero-section.has-cover{background-image:linear-gradient(128deg,#d7b4fb 0%,#f6b3d3 48%,#a9d5f6 100%)!important;background-color:#f6ddec!important}
 .hero-section.has-cover .hero-copy{background:linear-gradient(110deg,rgba(255,250,255,.9),rgba(255,237,248,.74) 78%,rgba(255,237,248,.38))!important}
 .hero-section.has-cover .hero-photo{background-image:none!important}
-@media(max-width:650px){.hero-section.has-cover{background-image:linear-gradient(145deg,#d9c0f1 0%,#f8d2e2 100%)!important}.hero-section.has-cover .hero-copy{background:linear-gradient(145deg,rgba(255,250,255,.92),rgba(255,237,248,.78))!important}.page-back,.chat-page-back{display:none!important}.offline-banner{top:max(8px,env(safe-area-inset-top));width:calc(100vw - 24px)}}
+@media(max-width:650px){.hero-section.has-cover{background-image:linear-gradient(145deg,#d9c0f1 0%,#f8d2e2 100%)!important}.hero-section.has-cover .hero-copy{background:linear-gradient(145deg,rgba(255,250,255,.92),rgba(255,237,248,.78))!important}.page-back{display:none!important}.offline-banner{top:max(8px,env(safe-area-inset-top));width:calc(100vw - 24px)}}
 </style>

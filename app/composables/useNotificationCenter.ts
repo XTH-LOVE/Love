@@ -1,12 +1,11 @@
 import { daysUntil, useAnniversaries } from './useAnniversaries'
-import { useCallHistory } from './useCallHistory'
 import { useCouplePet } from './useCouplePet'
 import { useHeartAi, type AiSavedWork } from './useHeartAi'
 import { useMediaUploadQueue, type UploadJob } from './useMediaUploadQueue'
 import { useMessages } from './useMessages'
 import type { Component } from 'vue'
 
-export type NotificationType = 'message' | 'call' | 'anniversary' | 'streak' | 'pet' | 'ai' | 'upload'
+export type NotificationType = 'message' | 'anniversary' | 'streak' | 'pet' | 'ai' | 'upload'
 export type NotificationTarget = '首页' | '悄悄话' | '纪念日' | '宠物小屋' | '心动AI' | '相册' | '时光'
 export type AppNotification = {
   id: string
@@ -60,7 +59,6 @@ function uploadBody(job: UploadJob) {
 export function useNotificationCenter() {
   const { profile } = useCoupleAuth()
   const { messages } = useMessages()
-  const { callRecords } = useCallHistory()
   const { anniversaries } = useAnniversaries()
   const { pet, streak, todayActionCount } = useCouplePet()
   const { loadWorks } = useHeartAi()
@@ -93,19 +91,6 @@ export function useNotificationCenter() {
         createdAt: message.createdAt,
         target: '悄悄话',
         read: isRead(`message:${message.id}`),
-      }))
-
-    callRecords.value
-      .filter(record => record.callerId !== ownId && ['cancelled', 'declined'].includes(record.status))
-      .slice(0, 6)
-      .forEach(record => result.push({
-        id: `call:${record.id}`,
-        type: 'call',
-        title: record.mode === 'video' ? '未接视频通话' : '未接来电',
-        body: 'TA 曾呼叫你，点击查看悄悄话并回拨。',
-        createdAt: record.startedAt,
-        target: '悄悄话',
-        read: isRead(`call:${record.id}`),
       }))
 
     anniversaries.value
