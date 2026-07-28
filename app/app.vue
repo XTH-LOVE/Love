@@ -68,7 +68,7 @@ const { stage, profile, initialize, signOut } = useCoupleAuth()
 const { anniversaries, relationshipStart, loveDays, nextAnniversary, loadAnniversaries } = useAnniversaries()
 const { sync: syncAnniversaryReminders } = useAnniversaryReminders()
 const { memories, loadMemories } = useMemories()
-const { allPhotos, loadAlbums } = useAlbums()
+const { allPhotos, loadAlbums, subscribeAlbumPhotos, disconnectAlbumPhotos } = useAlbums()
 const { items: togetherItems, loadItems, toggleItem } = useTogetherList()
 const { members, loadMembers, subscribeMembers, disconnectMembers } = useAccountManagement()
 const { partnerOnline, connectPresence, disconnectPresence } = useCouplePresence()
@@ -140,6 +140,7 @@ async function loadHomeData() {
   ].map(task => settleWithin(task)))
   await Promise.allSettled([
     subscribeMembers(),
+    subscribeAlbumPhotos(),
     syncAnniversaryReminders(anniversaries.value),
     loadCoupleCover(),
     connectPresence(),
@@ -188,6 +189,7 @@ async function reconnectSpaceServices() {
   await Promise.allSettled([
     connectPresence(),
     subscribeMessages(),
+    subscribeAlbumPhotos(),
     ensureCallChannel(),
     ensureLiveChannel(),
   ])
@@ -250,6 +252,7 @@ watch(stage, async value => {
     await disconnectPresence()
     await disconnectMessages()
     await disconnectMembers()
+    await disconnectAlbumPhotos()
   }
 })
 watch(callStatus, value => { if (value === 'ringing') chatVisible.value = true })
@@ -270,7 +273,7 @@ function revealHomeVideo(event:Event){const video=event.currentTarget as HTMLVid
 function homeVideoReady(event: Event) { revealVideoFrame(event) }
 async function refreshHomeMedia(event: Event, path: string, bucket?: string, mediaType: 'image' | 'video' = 'image') { await refreshMediaElement(event, $supabase, path, bucket, mediaType === 'image' ? { width: 640, height: 640, resize: 'contain', quality: 68 } : undefined) }
 async function refreshHero(event: Event) { await refreshMediaElement(event, $supabase, homeHeroPath.value, homeHeroPath.value.includes('/album-media/') ? 'album-media' : 'memory-photos', { width: 1400, height: 900, resize: 'cover', quality: 84 }) }
-onBeforeUnmount(async () => { window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers() })
+onBeforeUnmount(async () => { window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
 
 async function openChat() {
   messageToast.value = null

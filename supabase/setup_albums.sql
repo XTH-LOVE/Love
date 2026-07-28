@@ -14,7 +14,7 @@ create policy "albums read by couple" on public.albums for select using (public.
 create policy "albums create by couple" on public.albums for insert with check (public.is_couple_member(couple_id) and created_by = auth.uid());
 create policy "albums update by creator" on public.albums for update using (created_by = auth.uid());
 create policy "albums delete by creator" on public.albums for delete using (created_by = auth.uid());
-drop policy if exists "album photos read by couple" on public.album_photos; drop policy if exists "album photos create by couple" on public.album_photos; drop policy if exists "album photos delete by uploader" on public.album_photos;
+drop policy if exists "album photos read by couple" on public.album_photos; drop policy if exists "album photos create by couple" on public.album_photos; drop policy if exists "album photos delete by uploader" on public.album_photos; drop policy if exists "album photos delete by couple" on public.album_photos;
 create policy "album photos read by couple" on public.album_photos for select using (exists(select 1 from public.albums where id = album_id and public.is_couple_member(couple_id)));
 create policy "album photos create by couple" on public.album_photos for insert with check (uploaded_by = auth.uid() and exists(select 1 from public.albums where id = album_id and public.is_couple_member(couple_id)));
-create policy "album photos delete by uploader" on public.album_photos for delete using (uploaded_by = auth.uid());
+create policy "album photos delete by couple" on public.album_photos for delete using (exists(select 1 from public.albums where id = album_id and public.is_couple_member(couple_id)));

@@ -8,6 +8,7 @@ const albumPhotos = ref<GalleryPhoto[]>([])
 const albumsLoading = ref(false);const albumPhotosLoadingMore = ref(false);const albumPhotosHasMore = ref(true);let oldestAlbumPhotoDate=''
 const albumsLoaded = ref(false)
 const ALBUM_PAGE_SIZE = 20
+let albumRealtimeChannel: any = null
 
 export function useAlbums() {
   const { $supabase } = useNuxtApp()
@@ -150,6 +151,37 @@ export function useAlbums() {
     } finally { albumPhotosLoadingMore.value = false }
   }
 
+  function adjustAlbumPhotoCount(albumId: string, delta: number) {
+    albums.value = albums.value.map(album => album.id === albumId
+      ? { ...album, photoCount: Math.max(0, album.photoCount + delta) }
+      : album)
+  }
+
+  async function subscribeAlbumPhotos() {
+    if (!$supabase || demoMode.value || albumRealtimeChannel || !profile.value?.coupleId) return
+    const coupleId = profile.value.coupleId
+    albumRealtimeChannel = $supabase.channel(`album-photos:${coupleId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'album_photos' }, (payload: any) => {
+        const row = payload.eventType === 'DELETE' ? payload.old : payload.new
+        const id = String(row?.id || '')
+        if (!id) return
+        if (payload.eventType === 'DELETE') {
+          const existing = albumPhotos.value.find(photo => photo.id === id)
+          albumPhotos.value = albumPhotos.value.filter(photo => photo.id !== id)
+          if (existing) adjustAlbumPhotoCount(existing.albumId, -1)
+          return
+        }
+        // Re-query joined album/profile fields so both clients receive the same card metadata.
+        void loadAlbums(true).catch(() => undefined)
+      })
+      .subscribe()
+  }
+
+  async function disconnectAlbumPhotos() {
+    if (albumRealtimeChannel && $supabase) await $supabase.removeChannel(albumRealtimeChannel)
+    albumRealtimeChannel = null
+  }
+
   const memoryPhotos = computed<GalleryPhoto[]>(() => memories.value.flatMap(memory => memory.photos.map((photo, index) => ({ id: `${memory.id}-${index}`, path: photo.path, thumbPath: photo.thumbPath, mediumPath: photo.mediumPath, originalPath: photo.originalPath, url: photo.url, originalUrl: photo.originalUrl, loadState: photo.loadState, takenDate: memory.memoryDate, albumId: 'memories', albumName: '时光轴', source: 'memory' as const, caption: memory.content,mediaType:'image',uploadedBy:memory.authorId,uploaderName:memory.authorName||'情侣成员',legacy:!isAlbumPath(photo.path) }))))
   const allPhotos = computed(() => [...albumPhotos.value, ...memoryPhotos.value].sort((a, b) => b.takenDate.localeCompare(a.takenDate)))
 
@@ -207,11 +239,16 @@ export function useAlbums() {
   async function deletePhoto(photo: GalleryPhoto) {
     if (photo.source === 'memory') throw new Error('时光轴照片请在对应回忆中编辑')
     if (!$supabase || demoMode.value) { albumPhotos.value = albumPhotos.value.filter(item => item.id !== photo.id); demoSave(); return }
-    const paths = [...new Set([photo.path, photo.thumbPath, photo.mediumPath, photo.originalPath].filter(Boolean))]
-    if (paths.length) await $supabase.storage.from(photo.legacy?'memory-photos':'album-media').remove(paths)
+    const paths = [...new Set([photo.path, photo.thumbPath, photo.mediumPath, photo.originalPath, photo.videoPosterPath].filter(Boolean))]
+    if (paths.length) {
+      const { error: storageError } = await $supabase.storage.from(photo.legacy ? 'memory-photos' : 'album-media').remove(paths)
+      if (storageError) throw storageError
+    }
     const { error } = await $supabase.from('album_photos').delete().eq('id', photo.id); if (error) throw error
+    albumPhotos.value = albumPhotos.value.filter(item => item.id !== photo.id)
+    adjustAlbumPhotoCount(photo.albumId, -1)
     await loadAlbums(true)
   }
 
-  return { albums, allPhotos, albumsLoading, albumPhotosLoadingMore, albumPhotosHasMore, loadAlbums, loadMorePhotos, retryPhoto, createAlbum, uploadToAlbum, deletePhoto }
+  return { albums, allPhotos, albumsLoading, albumPhotosLoadingMore, albumPhotosHasMore, loadAlbums, loadMorePhotos, subscribeAlbumPhotos, disconnectAlbumPhotos, retryPhoto, createAlbum, uploadToAlbum, deletePhoto }
 }
