@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import '@fontsource-variable/manrope'
 import '@fontsource-variable/nunito-sans'
+import CallScreen from './components/CallScreen.vue'
 import {
   CalendarDays,
   Activity,
@@ -489,7 +490,7 @@ function syncOnlineState() {
 
     <LazyAccountPanel v-if="accountVisible" @close="accountVisible = false" @logout="leaveSpace" @unlinked="handleUnlinked" @relationship-updated="loadHomeData" />
     <LazyChatPanel v-if="chatVisible" mode="drawer" @close="chatVisible = false" />
-    <LazyCallScreen v-if="callStatus !== 'idle'" :partner="partnerMember" @minimized="chatVisible = false" />
+    <CallScreen v-if="callStatus !== 'idle'" :partner="partnerMember" @minimized="chatVisible = false" />
     <LazySpaceStatusPanel v-if="spaceStatusVisible" @close="spaceStatusVisible = false" @reconnect="reconnectSpaceServices" />
     <NotificationCenterPanel v-if="notificationVisible" :notifications="notifications" :unread-count="notificationUnreadCount" :loading="notificationAiLoading" @close="notificationVisible = false" @read="markNotificationRead" @read-all="markAllNotificationsRead" @navigate="navigateFromNotification" @refresh="refreshAiWorks" />
     <div v-if="coverPickerVisible" class="cover-picker-overlay" @click.self="coverPickerVisible = false">
