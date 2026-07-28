@@ -68,23 +68,6 @@ export function useCoupleAuth() {
     } finally { loading.value = false }
   }
 
-  async function sendMagicLink(email: string) {
-    loading.value = true
-    try {
-      if (!$supabase) throw new Error('演示模式不支持免密链接，请切换到邮箱密码登录')
-      const normalizedEmail = email.trim().toLowerCase()
-      if (!normalizedEmail) throw new Error('请输入邮箱地址')
-      const { error } = await $supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      })
-      if (error) throw error
-    } finally { loading.value = false }
-  }
-
   async function signInWithOAuth(provider: OAuthProvider) {
     loading.value = true
     try {
@@ -197,5 +180,5 @@ export function useCoupleAuth() {
     demoMode.value = false
   }
 
-  return { configured, demoMode, initialized, loading, profile, stage, initialize, signIn, signUp, signInWithAccount, signUpWithAccount, sendMagicLink, signInWithOAuth, recoverAccount, resendConfirmation, updatePassword, createCouple, joinCouple, signOut }
+  return { configured, demoMode, initialized, loading, profile, stage, initialize, signIn, signUp, signInWithAccount, signUpWithAccount, signInWithOAuth, recoverAccount, resendConfirmation, updatePassword, createCouple, joinCouple, signOut }
 }

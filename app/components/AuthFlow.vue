@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import './auth-pastel-theme.css'
 import './auth-single-card.css'
-import { ArrowLeft, Check, Copy, GitFork, Heart, KeyRound, Link2, LoaderCircle, Mail, ShieldCheck, Sparkles, UserRound } from '@lucide/vue'
+import { ArrowLeft, Check, Copy, Heart, KeyRound, Link2, LoaderCircle, Mail, ShieldCheck, Sparkles, UserRound } from '@lucide/vue'
 
 const emit = defineEmits<{ complete: [] }>()
-const { configured, demoMode, loading, profile, stage, signIn, signUp, signInWithAccount, signUpWithAccount, sendMagicLink, signInWithOAuth, recoverAccount, resendConfirmation, createCouple, joinCouple } = useCoupleAuth()
+const { configured, demoMode, loading, profile, stage, signIn, signUp, signInWithAccount, signUpWithAccount, signInWithOAuth, recoverAccount, resendConfirmation, createCouple, joinCouple } = useCoupleAuth()
 const mode = ref<'login' | 'register'>('login')
-const loginType = ref<'email' | 'account' | 'magic'>('email')
+const loginType = ref<'email' | 'account'>('email')
 const recovering = ref(false)
 const pairingMode = ref<'choose' | 'create' | 'join'>('choose')
 const displayName = ref('')
@@ -23,18 +23,10 @@ const generatedCode = ref('')
 const errorMessage = ref('')
 const copied = ref(false)
 const resendStatus = ref('')
-const magicStatus = ref('')
 
 async function submitAuth() {
   errorMessage.value = ''
-  magicStatus.value = ''
   try {
-    if (loginType.value === 'magic') {
-      if (!email.value.trim()) throw new Error('请输入有效邮箱')
-      await sendMagicLink(email.value)
-      magicStatus.value = '登录链接已发送，请打开邮件完成登录。'
-      return
-    }
     if (loginType.value === 'account') {
       if (!/^[a-zA-Z0-9_]{4,20}$/.test(username.value)) throw new Error('账号名需要 4-20 位字母、数字或下划线')
       if (password.value.length < 8) throw new Error('密码至少需要 8 位')
@@ -118,6 +110,7 @@ async function resendEmail() {
         <button class="mode-switch" type="button" @click="stage = 'signed-out'; mode = 'login'">已经确认？返回登录</button>
       </div>
       <div v-else-if="stage === 'signed-out'" class="auth-card">
+        <div class="auth-brand-lockup"><span class="auth-brand-icon"><img src="/couplespace-mark.svg" alt=""></span><div><strong>Love小家</strong><small>只属于两个人的日常</small></div><span class="auth-brand-heart"><Heart :size="15" fill="currentColor" /></span></div>
         <div v-if="generatedRecoveryCode" class="recovery-result"><ShieldCheck :size="30"/><p class="eyebrow">RECOVERY CODE</p><h2>保存你的恢复码</h2><p>忘记密码时，这是找回账号的唯一凭证。它只显示这一次。</p><button class="code-box" type="button" @click="copyRecovery"><strong>{{generatedRecoveryCode}}</strong><Copy :size="18"/></button><label><input v-model="recoverySaved" type="checkbox">我已经安全保存恢复码</label><button class="auth-submit" :disabled="!recoverySaved" @click="generatedRecoveryCode='';mode='login';signInWithAccount(username,password)">进入 Love小家</button></div>
         <template v-else>
         <div class="auth-heading">
@@ -126,22 +119,21 @@ async function resendEmail() {
           <span>{{ mode === 'login' ? '登录后继续收藏两个人的日常。' : '先创建你的账户，下一步邀请另一半。' }}</span>
         </div>
         <div v-if="!configured" class="demo-banner">当前为本地演示模式，配置 Supabase 后将启用真实账户。</div>
-        <div class="login-type" role="tablist" aria-label="登录方式"><button type="button" role="tab" :aria-selected="loginType==='email'" :class="{active:loginType==='email'}" @click="loginType='email';recovering=false;magicStatus=''">邮箱密码</button><button type="button" role="tab" :aria-selected="loginType==='account'" :class="{active:loginType==='account'}" @click="loginType='account';recovering=false;magicStatus=''">账号密码</button><button type="button" role="tab" :aria-selected="loginType==='magic'" :class="{active:loginType==='magic'}" @click="loginType='magic';recovering=false;magicStatus=''">免密链接</button></div>
+        <div class="login-type" role="tablist" aria-label="登录方式"><button type="button" role="tab" :aria-selected="loginType==='email'" :class="{active:loginType==='email'}" @click="loginType='email';recovering=false">邮箱密码</button><button type="button" role="tab" :aria-selected="loginType==='account'" :class="{active:loginType==='account'}" @click="loginType='account';recovering=false">账号密码</button></div>
         <form v-if="!recovering" class="auth-form" @submit.prevent="submitAuth">
           <label v-if="mode === 'register'"><span>你的称呼</span><div><UserRound :size="18" /><input v-model="displayName" autocomplete="name" placeholder="例如：小林"></div></label>
-          <label v-if="loginType==='email' || loginType==='magic'"><span>邮箱</span><div><Mail :size="18" /><input v-model="email" type="email" autocomplete="email" placeholder="name@example.com"></div></label>
+          <label v-if="loginType==='email'"><span>邮箱</span><div><Mail :size="18" /><input v-model="email" type="email" autocomplete="email" placeholder="name@example.com"></div></label>
           <label v-else><span>账号名</span><div><UserRound :size="18"/><input v-model="username" autocomplete="username" placeholder="4-20 位字母、数字或下划线"></div></label>
-          <label v-if="loginType !== 'magic'"><span>密码</span><div><KeyRound :size="18" /><input v-model="password" type="password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" placeholder="至少 6 位"></div></label>
+          <label><span>密码</span><div><KeyRound :size="18" /><input v-model="password" type="password" :autocomplete="mode === 'login' ? 'current-password' : 'new-password'" placeholder="至少 6 位"></div></label>
           <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
-          <p v-if="magicStatus" class="auth-success"><Mail :size="16" />{{ magicStatus }}</p>
-          <button class="auth-submit" type="submit" :disabled="loading"><LoaderCircle v-if="loading" class="spin" :size="18" />{{ loginType === 'magic' ? '发送登录链接' : mode === 'login' ? '登录 Love小家' : '创建账户' }}</button>
+          <button class="auth-submit" type="submit" :disabled="loading"><LoaderCircle v-if="loading" class="spin" :size="18" />{{ mode === 'login' ? '登录 Love小家' : '创建账户' }}</button>
         </form>
         <form v-else class="auth-form" @submit.prevent="submitRecovery"><label><span>账号名</span><div><UserRound :size="18"/><input v-model="username"></div></label><label><span>恢复码</span><div><ShieldCheck :size="18"/><input v-model="recoveryCode" placeholder="XXXX-XXXX-XXXX-XXXX"></div></label><label><span>新密码</span><div><KeyRound :size="18"/><input v-model="password" type="password" placeholder="至少 8 位"></div></label><p v-if="errorMessage" class="form-error">{{errorMessage}}</p><button class="auth-submit" :disabled="loading">重置密码</button></form>
         <div v-if="mode === 'login' && !recovering" class="oauth-divider"><span>或使用其他方式</span></div>
-        <div v-if="mode === 'login' && !recovering" class="oauth-actions"><button type="button" class="oauth-button" @click="submitOAuth('google')"><span class="google-mark">G</span>Google</button><button type="button" class="oauth-button" @click="submitOAuth('github')"><GitFork :size="17" />GitHub</button></div>
+        <div v-if="mode === 'login' && !recovering" class="oauth-actions"><button type="button" class="oauth-button" @click="submitOAuth('google')"><img src="/auth/google.svg" alt="" aria-hidden="true">Google</button><button type="button" class="oauth-button" @click="submitOAuth('github')"><img src="/auth/github.svg" alt="" aria-hidden="true">GitHub</button></div>
         <p v-if="mode === 'login' && !recovering" class="auth-trust"><ShieldCheck :size="15" />第三方登录只用于身份验证，不会读取你的密码。</p>
         <button v-if="loginType==='account'&&mode==='login'" class="mode-switch" type="button" @click="recovering=!recovering;errorMessage=''">{{recovering?'返回登录':'忘记密码？使用恢复码'}}</button>
-        <button class="mode-switch" type="button" @click="mode = mode === 'login' ? 'register' : 'login'; if (mode === 'register' && loginType === 'magic') loginType = 'email'; errorMessage = ''; magicStatus = ''">
+        <button class="mode-switch" type="button" @click="mode = mode === 'login' ? 'register' : 'login'; errorMessage = ''">
           {{ mode === 'login' ? '还没有账户？创建一个' : '已有账户？返回登录' }}
         </button>
         </template>
@@ -186,6 +178,27 @@ async function resendEmail() {
 </style>
 
 <style scoped>
+#auth-single-card .auth-brand-lockup{display:flex;align-items:center;gap:11px;margin:0 0 25px;padding:9px 10px 9px 9px;border:1px solid rgba(255,255,255,.68);border-radius:20px;background:rgba(255,255,255,.34);box-shadow:inset 0 1px rgba(255,255,255,.7),0 10px 24px rgba(154,88,144,.07);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#auth-single-card .auth-brand-icon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;border:1px solid rgba(255,255,255,.7);border-radius:14px;background:linear-gradient(145deg,rgba(255,255,255,.82),rgba(250,211,234,.74));box-shadow:0 8px 17px rgba(181,102,154,.12)}
+#auth-single-card .auth-brand-icon img{width:29px;height:29px;object-fit:contain}
+#auth-single-card .auth-brand-lockup strong,#auth-single-card .auth-brand-lockup small{display:block}
+#auth-single-card .auth-brand-lockup strong{color:#5e3564;font-size:14px;font-weight:850;letter-spacing:.01em}
+#auth-single-card .auth-brand-lockup small{margin-top:3px;color:#9a7899;font-size:9px;letter-spacing:.06em}
+#auth-single-card .auth-brand-heart{display:grid;place-items:center;width:30px;height:30px;margin-left:auto;border:1px solid rgba(229,155,190,.28);border-radius:50%;background:rgba(255,236,247,.62);color:#d674a0}
+#auth-single-card .auth-card{position:relative;overflow:hidden}
+#auth-single-card .auth-card::before{content:'';position:absolute;top:-98px;right:-76px;width:220px;height:180px;border:1px solid rgba(255,255,255,.48);border-radius:50%;background:linear-gradient(145deg,rgba(255,255,255,.3),rgba(255,216,238,.04));transform:rotate(-18deg);pointer-events:none}
+#auth-single-card .auth-card>*{position:relative;z-index:1}
+#auth-single-card .auth-heading h2{letter-spacing:-.015em}
+#auth-single-card .login-type{border:1px solid rgba(255,255,255,.55)!important;box-shadow:inset 0 1px rgba(255,255,255,.72),0 8px 18px rgba(142,91,157,.06)!important}
+#auth-single-card .oauth-button{background:rgba(255,255,255,.58);border-color:rgba(255,255,255,.72);box-shadow:inset 0 1px rgba(255,255,255,.74)}
+@media(max-width:650px){#auth-single-card .auth-brand-lockup{margin-bottom:20px;padding:8px}#auth-single-card .auth-brand-icon{width:38px;height:38px;flex-basis:38px}#auth-single-card .auth-brand-icon img{width:26px;height:26px}#auth-single-card .auth-brand-heart{width:27px;height:27px}}
+#auth-single-card{width:100%;max-width:100%;overflow-x:hidden!important;overscroll-behavior-x:none}
+#auth-single-card .auth-workspace{width:100%;max-width:100%;overflow-x:hidden!important;overscroll-behavior-x:none}
+#auth-single-card .auth-card{max-width:100%;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-x:none}
+#auth-single-card .auth-sidecar{max-width:calc(100% - 24px);overflow-x:hidden!important;overscroll-behavior-x:none}
+</style>
+
+<style scoped>
 /* The expanded auth surface keeps the methods discoverable without adding another page. */
 .auth-workspace{padding-inline:clamp(34px,7vw,120px)!important}
 .auth-card{width:min(100%,540px)!important;padding:clamp(28px,4vw,44px)!important}
@@ -196,9 +209,8 @@ async function resendEmail() {
 .oauth-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .oauth-button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border:1px solid rgba(186,143,199,.38);border-radius:16px;background:rgba(255,255,255,.67);color:#5c4764;font:inherit;font-size:11px;font-weight:760;cursor:pointer;transition:transform .2s ease,background .2s ease,box-shadow .2s ease}
 .oauth-button:hover{transform:translateY(-1px);background:rgba(255,255,255,.9);box-shadow:0 8px 20px rgba(94,55,111,.1)}
-.google-mark{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;color:#4285f4;font-family:Arial,sans-serif;font-size:16px;font-weight:800}
+.oauth-button img{width:18px;height:18px;object-fit:contain}
 .auth-trust{display:flex;align-items:center;justify-content:center;gap:5px;margin:13px 0 0;color:#8e7b94;font-size:9px;line-height:1.5;text-align:center}
-.auth-success{display:flex;align-items:flex-start;gap:7px;margin:0;padding:10px 12px;border:1px solid rgba(116,177,139,.28);border-radius:14px;background:rgba(235,250,239,.72);color:#4c8960;font-size:10px;line-height:1.5}
 @media(max-width:820px){.auth-workspace{padding:24px 16px 40px!important}.auth-card{width:min(100%,560px)!important;padding:24px 18px!important}.oauth-button{min-height:44px}.auth-trust{font-size:8px}}
 @media(max-width:420px){.login-type button{font-size:10px!important}.oauth-actions{grid-template-columns:1fr}.auth-card{border-radius:22px!important}}
 </style>
