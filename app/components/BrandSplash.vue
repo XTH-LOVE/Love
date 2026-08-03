@@ -1,12 +1,63 @@
 <script setup lang="ts">
 import './brand-single-card.css'
+const splashRoot = ref<HTMLElement | null>(null)
+const { gsap, context } = useGSAP()
+const { shouldAnimate, motionReady } = useMotionSettings()
+let animationContext: ReturnType<typeof context>
+let startupTimeline: ReturnType<typeof gsap.timeline> | undefined
+let declarationTimeline: ReturnType<typeof gsap.timeline> | undefined
 const visible = ref(false)
 const startupVisible = ref(false)
 const seconds = ref(10)
 let timer: ReturnType<typeof setInterval> | undefined
 let startupTimer: ReturnType<typeof setTimeout> | undefined
 
+function playStartupIntro() {
+  const startup = splashRoot.value?.querySelector('.startup-splash')
+  if (!startup || !motionReady.value) return
+  const mark = startup.querySelector('.startup-mark')
+  const copy = startup.querySelectorAll(':scope > strong, :scope > p')
+  const progress = startup.querySelector('.startup-progress')
+  startupTimeline?.kill()
+  gsap.set([mark, ...copy, progress], { clearProps: 'transform,opacity,visibility' })
+  animationContext?.add(() => {
+    if (!shouldAnimate.value) return
+    startupTimeline = gsap.timeline({ defaults: { ease: 'power3.out' } })
+      .from(mark, { autoAlpha: 0, y: 18, scale: 0.78, rotation: -8, duration: 0.7 })
+      .from(copy, { autoAlpha: 0, y: 10, stagger: 0.08, duration: 0.42 }, '-=0.38')
+      .from(progress, { autoAlpha: 0, scaleX: 0, transformOrigin: 'left center', duration: 0.35 }, '-=0.16')
+  })
+}
+
+function playDeclarationIntro() {
+  const card = splashRoot.value?.querySelector('.brand-splash main')
+  if (!card || !motionReady.value) return
+  const brandItems = card.querySelectorAll('.brand-side > *')
+  const declarationItems = card.querySelectorAll('.declaration > span, .declaration > h2, .statement p, .declaration > button, .declaration > small')
+  declarationTimeline?.kill()
+  gsap.set([card, ...brandItems, ...declarationItems], { clearProps: 'transform,opacity,visibility' })
+  animationContext?.add(() => {
+    if (!shouldAnimate.value) return
+    declarationTimeline = gsap.timeline({ defaults: { ease: 'power3.out' } })
+      .from(brandItems, { autoAlpha: 0, y: 14, stagger: 0.07, duration: 0.36 })
+      .from(declarationItems, { autoAlpha: 0, y: 12, stagger: 0.045, duration: 0.32 }, '-=0.2')
+  })
+}
+
+watch(startupVisible, async value => {
+  if (!value) return
+  await nextTick()
+  playStartupIntro()
+})
+
+watch(visible, async value => {
+  if (!value) return
+  await nextTick()
+  playDeclarationIntro()
+})
+
 onMounted(() => {
+  animationContext = context(splashRoot.value, () => undefined)
   const accepted = localStorage.getItem('couple-space-declaration-accepted') === '1'
   startupVisible.value = true
   startupTimer = setTimeout(() => {
@@ -22,6 +73,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
   if (startupTimer) clearTimeout(startupTimer)
+  startupTimeline?.kill()
+  declarationTimeline?.kill()
+  animationContext?.revert()
 })
 
 function enter() {
@@ -32,6 +86,7 @@ function enter() {
 </script>
 
 <template>
+  <div ref="splashRoot" class="brand-splash-host" :class="{ 'motion-ready': motionReady }">
   <Transition name="startup-splash">
     <div v-if="startupVisible" class="startup-splash" aria-label="Love小家正在启动">
       <div class="startup-orbit startup-orbit-one" />
@@ -70,10 +125,16 @@ function enter() {
       <footer><i /><span>缐廷华开发</span><i /></footer>
     </div>
   </Transition>
+  </div>
 </template>
 
 <style scoped>
 .brand-splash{background:linear-gradient(145deg,#7b45ad 0%,#d765a0 48%,#78bce7 100%)!important;color:#fff!important}.brand-splash::before{content:'';position:absolute;inset:18px;border:1px solid rgba(255,255,255,.24);border-radius:42px;pointer-events:none}.glow{display:block!important;width:76vw!important;height:220px!important;border-radius:44px!important;background:linear-gradient(90deg,rgba(255,255,255,.22),rgba(255,255,255,.03))!important;filter:blur(34px)!important;transform:rotate(-11deg);animation:declaration-float 8s ease-in-out infinite alternate}main{border:1px solid rgba(255,255,255,.58)!important;border-radius:38px!important;background:linear-gradient(145deg,rgba(89,35,107,.48),rgba(255,194,222,.24))!important;box-shadow:0 35px 90px rgba(55,19,75,.3),inset 0 1px rgba(255,255,255,.5)!important;backdrop-filter:blur(24px) saturate(125%)!important}.brand-side{position:relative;background:linear-gradient(155deg,rgba(91,35,119,.56),rgba(228,93,157,.43))!important}.brand-side::after{content:'';position:absolute;width:150px;height:150px;border:1px solid rgba(255,255,255,.28);border-radius:28px;transform:rotate(26deg);opacity:.7}.brand-side img{position:relative;z-index:1;filter:drop-shadow(0 22px 27px rgba(44,9,58,.32))!important;animation:mark-bounce 2.7s ease-in-out infinite!important}.brand-side small,.brand-side h1,.brand-side p{position:relative;z-index:1;color:#fff!important}.brand-side p{color:rgba(255,255,255,.76)!important}.declaration{background:linear-gradient(145deg,rgba(255,255,255,.18),rgba(255,219,240,.12))!important}.declaration>span{color:#ffe5f3!important;letter-spacing:.14em!important}.declaration h2{color:#fff!important;text-shadow:0 4px 18px rgba(58,13,72,.25)}.statement p{padding:10px 12px!important;border:1px solid rgba(255,255,255,.17);border-radius:13px;background:rgba(63,22,82,.16);color:rgba(255,255,255,.86)!important}.statement strong{color:#fff!important}.declaration>button{border:1px solid rgba(255,255,255,.5)!important;border-radius:21px!important;background:linear-gradient(100deg,#8f4bc1,#e35f9f 56%,#67b8e9)!important;box-shadow:0 15px 30px rgba(75,23,97,.28)!important;animation:enter-bounce 2.5s ease-in-out infinite}.declaration>button:disabled{background:rgba(57,17,74,.22)!important;color:rgba(255,255,255,.66)!important;animation:none}.declaration>small{color:rgba(255,255,255,.66)!important}.brand-splash>footer{color:rgba(255,255,255,.72)!important}.brand-splash>footer i{background:rgba(255,255,255,.46)!important}@keyframes declaration-float{to{transform:translateY(-18px) rotate(-7deg)}}@keyframes mark-bounce{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-9px) scale(1.035)}}@keyframes enter-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}@media(max-width:650px){.brand-splash::before{inset:10px;border-radius:27px}main{border-radius:28px!important}.declaration{background:rgba(255,255,255,.1)!important}.statement p{padding:8px 9px!important}.glow{width:120vw!important}}
+</style>
+
+<style scoped>
+.brand-splash-host{display:contents}
+.motion-ready .startup-mark,.motion-ready .startup-orbit,.motion-ready .startup-mark span,.motion-ready .startup-progress i,.motion-ready .brand-side img,.motion-ready .glow,.motion-ready .declaration>button{animation:none!important}.motion-ready .startup-progress i{width:100%!important}
 </style>
 
 <style scoped>

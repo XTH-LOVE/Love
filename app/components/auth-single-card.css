@@ -144,6 +144,33 @@
   }
 }
 
+/* Keep mobile auth flows on one scroll surface. Nested card scrolling makes
+   touch gestures feel trapped and leaves a second scrollbar beside the page. */
+@media (max-width: 650px) {
+  #auth-single-card {
+    min-height: 100dvh !important;
+    height: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #auth-single-card .auth-workspace {
+    min-height: 100dvh !important;
+    height: auto !important;
+    align-content: start !important;
+    place-items: start center !important;
+  }
+
+  #auth-single-card .auth-card {
+    max-height: none !important;
+    height: auto !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    overflow: visible !important;
+  }
+}
+
 #auth-single-card .auth-sidecar {
   position: absolute;
   z-index: 2;
@@ -316,5 +343,15 @@
     height: 76vw !important;
     top: 58% !important;
     right: -32vw !important;
+  }
+
+  /* The component's scoped rule is more specific, so repeat the class here
+     to ensure the card itself never becomes a second scroll surface. */
+  #auth-single-card .auth-card.auth-card {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
   }
 }

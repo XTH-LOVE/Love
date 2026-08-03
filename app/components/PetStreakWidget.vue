@@ -1,20 +1,36 @@
 <script setup lang="ts">
 import { BellRing, Flame, Gamepad2, Hand, Heart, LoaderCircle, Sparkles, Utensils } from '@lucide/vue'
+import { useGSAP } from '~/composables/useGSAP'
+import { useMotionSettings } from '~/composables/useMotionSettings'
 
-const { pet, streak, loading, busy, error, todayCompleted, todayActionCount, todayActorIds, petRewards, streakNotice, moodLabel, hungerLabel, levelProgress, load, recordActivity, interact, disconnect } = useCouplePet()
+const { pet, streak, loading, busy, error, todayCompleted, todayActionCount, todayActorIds, petRewards, streakNotice, moodLabel, hungerLabel, levelProgress, load, recordActivity, interact: interactPet, disconnect } = useCouplePet()
 const { profile } = useCoupleAuth()
 const { members, loadMembers } = useAccountManagement()
 const { enabled: reminderEnabled, busy: reminderBusy, enable: enableReminder, disable: disableReminder } = useStreakReminders()
 const mood = ref(5)
 const note = ref('')
+const petAvatarRef = ref<HTMLElement | null>(null)
+const streakValueRef = ref<HTMLElement | null>(null)
+const { gsap } = useGSAP()
+const { shouldAnimate } = useMotionSettings()
+let interactionTween: ReturnType<typeof gsap.timeline> | undefined
 const petArt = computed(() => ({ bunny: '🐰', cat: '🐱', puppy: '🐶', bear: '🐻', fox: '🦊', panda: '🐼', penguin: '🐧', hamster: '🐹' }[pet.value?.species || 'bunny']))
 const currentUserId = computed(() => profile.value?.id || 'demo-user')
 const memberLabel = (member: { id: string; displayName: string }) => member.id === currentUserId.value ? '你' : 'TA'
 const memberDone = (id: string) => todayActorIds.value.includes(id)
 async function commitStreak() { await recordActivity('manual', mood.value, note.value); if (todayCompleted.value) note.value = '' }
 async function toggleReminder() { if (reminderEnabled.value) await disableReminder(); else await enableReminder() }
+async function handlePetInteraction(action: 'feed' | 'play' | 'pet') {
+  await interactPet(action)
+  if (!shouldAnimate.value || !petAvatarRef.value) return
+  interactionTween?.kill()
+  interactionTween = gsap.timeline({ defaults: { ease: 'power2.out', overwrite: 'auto' } })
+    .to(petAvatarRef.value, { scale: 1.12, rotation: action === 'play' ? 4 : -3, duration: .16 })
+    .to(petAvatarRef.value, { scale: 1, rotation: 0, duration: .28 })
+  if (streakValueRef.value) interactionTween.to(streakValueRef.value, { scale: 1.14, color: '#d15a9b', duration: .14 }, '<').to(streakValueRef.value, { scale: 1, clearProps: 'color,transform', duration: .28 })
+}
 onMounted(async () => { await Promise.all([load(), loadMembers()]) })
-onBeforeUnmount(disconnect)
+onBeforeUnmount(() => { interactionTween?.kill(); disconnect() })
 const streakCopy = computed(() => todayCompleted.value ? '今天的火花已经接上啦' : '今天也来见面一次吧')
 </script>
 
@@ -22,7 +38,7 @@ const streakCopy = computed(() => todayCompleted.value ? '今天的火花已经�
   <section class="pet-streak-widget panel" aria-label="共同宠物和续火花">
     <div class="streak-column">
       <div class="widget-heading"><div><p class="eyebrow">TOGETHER, EVERY DAY</p><h3>续一朵火花</h3></div><Sparkles :size="19" /></div>
-      <div class="streak-number"><Flame :size="28" fill="currentColor"/><strong>{{ streak?.currentDays || 0 }}</strong><span>天连续互动</span></div>
+      <div class="streak-number"><Flame :size="28" fill="currentColor"/><strong ref="streakValueRef">{{ streak?.currentDays || 0 }}</strong><span>天连续互动</span></div>
       <p class="streak-copy">{{ streakCopy }} · 最长连续 {{ streak?.longestDays || 0 }} 天</p>
       <p class="streak-progress" aria-live="polite">{{ todayActionCount >= 2 ? '双方都已完成' : `今日已完成 ${todayActionCount}/2` }}</p>
       <p class="streak-protection">火花保护 {{ streak?.protectionCount || 0 }} 次 · 连续 7 天奖励 1 次</p>
@@ -34,9 +50,9 @@ const streakCopy = computed(() => todayCompleted.value ? '今天的火花已经�
     </div>
     <div class="pet-column">
       <div class="widget-heading"><div><p class="eyebrow">OUR LITTLE FRIEND</p><h3>{{ pet?.name || '小爱' }} 的小屋</h3></div><span class="pet-level">Lv.{{ pet?.level || 1 }}</span></div>
-      <div class="pet-main"><div class="pet-avatar" :class="`skin-${pet?.skin || 'lavender'}`">{{ petArt }}</div><div class="pet-copy"><strong>{{ moodLabel }}</strong><span>{{ hungerLabel }} · 经验 {{ pet?.experience || 0 }}</span><div class="pet-progress"><i :style="{ width: `${levelProgress}%` }" /></div></div></div>
+      <div class="pet-main"><div ref="petAvatarRef" class="pet-avatar" :class="`skin-${pet?.skin || 'lavender'}`">{{ petArt }}</div><div class="pet-copy"><strong>{{ moodLabel }}</strong><span>{{ hungerLabel }} · 经验 {{ pet?.experience || 0 }}</span><div class="pet-progress"><i :style="{ width: `${levelProgress}%` }" /></div></div></div>
       <p class="reward-strip">已解锁 {{ petRewards.length }} 个共同奖励 · 火花会让小屋继续长大</p>
-      <div class="pet-actions"><button type="button" title="喂食" :disabled="busy || loading" @click="interact('feed')"><Utensils :size="15"/><span>喂食</span></button><button type="button" title="陪玩" :disabled="busy || loading" @click="interact('play')"><Gamepad2 :size="15"/><span>陪玩</span></button><button type="button" title="摸摸" :disabled="busy || loading" @click="interact('pet')"><Hand :size="15"/><span>摸摸</span></button></div>
+      <div class="pet-actions"><button type="button" title="喂食" :disabled="busy || loading" @click="handlePetInteraction('feed')"><Utensils :size="15"/><span>喂食</span></button><button type="button" title="陪玩" :disabled="busy || loading" @click="handlePetInteraction('play')"><Gamepad2 :size="15"/><span>陪玩</span></button><button type="button" title="摸摸" :disabled="busy || loading" @click="handlePetInteraction('pet')"><Hand :size="15"/><span>摸摸</span></button></div>
     </div>
     <p v-if="error" class="widget-error">{{ error }}</p>
   </section>

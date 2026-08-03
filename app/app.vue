@@ -12,6 +12,7 @@ import {
   Image,
   ListChecks,
   MapPin,
+  Mail,
   MessageCircleHeart,
   Camera,
   X,
@@ -28,9 +29,12 @@ import {
   WifiOff,
   RefreshCw,
   Bell,
+  Film,
 } from '@lucide/vue'
 import { notifySystem, requestSystemAlerts } from './composables/useSystemAlerts'
 import { createMediaSignedUrl, refreshMediaElement, revealVideoFrame } from './composables/useMediaUrls'
+import { useGSAP } from './composables/useGSAP'
+import { useMotionSettings } from './composables/useMotionSettings'
 
 const navItems = [
   { label: '首页', icon: Home },
@@ -47,6 +51,10 @@ const mobileNavItems = computed(() => navItems)
 const activeNav = ref('首页')
 const pageError = ref('')
 const pageRenderKey = ref(0)
+const pageStageRef = ref<HTMLElement | null>(null)
+const { gsap, ScrollTrigger, context } = useGSAP()
+const { shouldAnimate } = useMotionSettings()
+let pageMotionContext: ReturnType<typeof context> | undefined
 const isOffline = ref(false)
 const timelineRef = ref<{ openCreate: () => void } | null>(null)
 const authVisible = ref(true)
@@ -56,6 +64,11 @@ const spaceStatusVisible = ref(false)
 const notificationVisible = ref(false)
 const firstRunIntroVisible = ref(false)
 const firstRunChecklistVisible = ref(false)
+const romanceGiftVisible = ref(false)
+const romanceGiftMode = ref<'opening' | 'story'>('opening')
+const futureMailboxVisible = ref(false)
+const voiceCapsuleVisible = ref(false)
+const easterEggVisible = ref(false)
 const chatVisible = ref(false)
 const messageToast = ref<{ sender: string; content: string } | null>(null)
 let messageToastTimer: ReturnType<typeof setTimeout> | undefined
@@ -77,8 +90,10 @@ const { callStatus, ensureChannel: ensureCallChannel, disconnectCall } = useCoup
 const { liveStatus, liveError, liveRemoteMuted, liveRemoteName, liveNeedsGesture, ensureLiveChannel, stopLive, dismissLive, resumeLiveAudio, disconnectLive } = useCoupleLiveMic()
 const { register: registerPushNotifications } = usePushNotifications()
 const { notifications, unreadCount: notificationUnreadCount, aiLoading: notificationAiLoading, refreshAiWorks, markRead: markNotificationRead, markAllRead: markAllNotificationsRead } = useNotificationCenter()
+const { validate: validateStoryShare } = useStoryShare()
 const { $supabase } = useNuxtApp()
 let pairedBootstrapStarted = false
+let romanceOpeningTimer: ReturnType<typeof setTimeout> | undefined
 
 function settleWithin<T>(promise: Promise<T>, timeout = 7000) {
   return Promise.race([
@@ -167,11 +182,46 @@ function completeFirstRunIntro() {
   if (import.meta.client) localStorage.setItem('couple-space-first-run-intro', '1')
   firstRunIntroVisible.value = false
   maybeShowFirstRunChecklist()
+  maybeShowRomanceExperience()
 }
 
 function completeFirstRunChecklist() {
   if (import.meta.client) localStorage.setItem('couple-space-first-run-complete', '1')
   firstRunChecklistVisible.value = false
+  maybeShowRomanceExperience()
+}
+
+function openRomanceExperience(mode: 'opening' | 'story' = 'story') {
+  romanceGiftMode.value = mode
+  romanceGiftVisible.value = true
+}
+
+function closeRomanceExperience() {
+  if (import.meta.client && romanceGiftMode.value === 'opening') localStorage.setItem(`couple-space-opening-letter-seen:${profile.value?.coupleId || 'demo'}`, '1')
+  romanceGiftVisible.value = false
+}
+
+function openFutureMailbox() { futureMailboxVisible.value = true }
+
+let sharedStoryHandled = false
+async function maybeOpenSharedStory() {
+  if (!import.meta.client || sharedStoryHandled || stage.value !== 'paired') return
+  const token = new URL(window.location.href).searchParams.get('story') || ''
+  if (!token) return
+  sharedStoryHandled = true
+  const valid = await validateStoryShare(token)
+  const cleanUrl = new URL(window.location.href)
+  cleanUrl.searchParams.delete('story')
+  window.history.replaceState({}, '', cleanUrl.toString())
+  if (valid) { if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); openRomanceExperience('story') }
+}
+
+function maybeShowRomanceExperience() {
+  if (!import.meta.client || stage.value !== 'paired' || firstRunIntroVisible.value || firstRunChecklistVisible.value || romanceGiftVisible.value) return
+  const key = `couple-space-opening-letter-seen:${profile.value?.coupleId || 'demo'}`
+  if (localStorage.getItem(key) === '1') return
+  if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer)
+  romanceOpeningTimer = setTimeout(() => openRomanceExperience('opening'), 900)
 }
 
 function openFirstPhotoUpload() {
@@ -238,6 +288,8 @@ onMounted(async () => {
     startPairedBootstrap()
   }
   appReady.value = true
+  void maybeOpenSharedStory()
+  maybeShowRomanceExperience()
 })
 
 watch(stage, async value => {
@@ -245,6 +297,8 @@ watch(stage, async value => {
   if (value === 'paired') {
     maybeShowFirstRunChecklist()
     startPairedBootstrap()
+    void maybeOpenSharedStory()
+    maybeShowRomanceExperience()
   } else {
     pairedBootstrapStarted = false
     await disconnectCall()
@@ -273,7 +327,7 @@ function revealHomeVideo(event:Event){const video=event.currentTarget as HTMLVid
 function homeVideoReady(event: Event) { revealVideoFrame(event) }
 async function refreshHomeMedia(event: Event, path: string, bucket?: string, mediaType: 'image' | 'video' = 'image') { await refreshMediaElement(event, $supabase, path, bucket, mediaType === 'image' ? { width: 640, height: 640, resize: 'contain', quality: 68 } : undefined) }
 async function refreshHero(event: Event) { await refreshMediaElement(event, $supabase, homeHeroPath.value, homeHeroPath.value.includes('/album-media/') ? 'album-media' : 'memory-photos', { width: 1400, height: 900, resize: 'cover', quality: 84 }) }
-onBeforeUnmount(async () => { window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
+onBeforeUnmount(async () => { pageMotionContext?.revert(); if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
 
 async function openChat() {
   messageToast.value = null
@@ -319,6 +373,81 @@ function retryPage() {
 function syncOnlineState() {
   if (import.meta.client) isOffline.value = !navigator.onLine
 }
+
+function scrollPageTop() {
+  if (!import.meta.client) return
+  window.scrollTo({ top: 0, behavior: shouldAnimate.value ? 'smooth' : 'auto' })
+}
+
+function animatePageEnter(element: Element, done: () => void) {
+  pageMotionContext?.revert()
+  pageMotionContext = undefined
+  if (!import.meta.client || !shouldAnimate.value || !gsap?.fromTo) {
+    done()
+    return
+  }
+  pageMotionContext = context(element, () => {
+    const introNodes = element.querySelectorAll('.topbar, .hero-section, .quote-stage, .pet-streak-widget, .timeline-header, .timeline-summary, .album-header, .album-filters, .pet-house-header, .pet-scene, .pet-stats, .style-panel, .heart-ai > header, .heart-ai > nav')
+    if (introNodes.length) {
+      gsap.fromTo(introNodes, { autoAlpha: 0, y: 18 }, {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.38,
+        ease: 'power2.out',
+        stagger: { each: 0.06, from: 'start' },
+        clearProps: 'opacity,visibility,transform',
+      })
+    }
+
+    const scrollNodes = element.querySelectorAll('.dashboard-grid > .panel, .timeline-entry, .photo-wall > button, .pet-stats > article, .style-panel, .ann-list > article, .history > div > article')
+    if (!scrollNodes.length || !ScrollTrigger?.batch) return
+    gsap.set(scrollNodes, { autoAlpha: 0, y: 18 })
+    ScrollTrigger.batch(Array.from(scrollNodes), {
+      start: 'top 88%',
+      once: true,
+      interval: 0.08,
+      batchMax: () => window.innerWidth <= 650 ? 3 : 6,
+      onEnter: elements => gsap.to(elements, {
+        autoAlpha: 1,
+        y: 0,
+        duration: window.innerWidth <= 650 ? 0.3 : 0.42,
+        ease: 'power2.out',
+        stagger: 0.045,
+        overwrite: 'auto',
+        clearProps: 'opacity,visibility,transform',
+      }),
+    })
+  })
+  gsap.fromTo(element, { autoAlpha: 0, y: 14 }, {
+    autoAlpha: 1,
+    y: 0,
+    duration: 0.34,
+    ease: 'power2.out',
+    clearProps: 'opacity,visibility,transform',
+    onComplete: done,
+  })
+}
+
+function animatePageLeave(element: Element, done: () => void) {
+  pageMotionContext?.revert()
+  pageMotionContext = undefined
+  if (!import.meta.client || !shouldAnimate.value || !gsap?.to) {
+    done()
+    return
+  }
+  gsap.to(element, {
+    autoAlpha: 0,
+    y: -8,
+    duration: 0.18,
+    ease: 'power1.in',
+    onComplete: done,
+  })
+}
+
+watch(activeNav, () => {
+  if (!import.meta.client) return
+  requestAnimationFrame(scrollPageTop)
+})
 </script>
 
 <template>
@@ -375,13 +504,15 @@ function syncOnlineState() {
       </button>
     </aside>
 
+    <Transition mode="out-in" @enter="animatePageEnter" @leave="animatePageLeave">
+      <div ref="pageStageRef" :key="activeNav" class="page-stage">
     <main v-if="activeNav === '首页'" class="main-content">
       <header class="topbar">
         <div>
           <p class="eyebrow">{{ todayLabel }}</p>
           <h1>晚上好，{{ coupleNames }}</h1>
         </div>
-        <div class="topbar-actions"><button class="message-button glass-panel notification-trigger" type="button" aria-label="打开通知中心" title="通知中心" @click="notificationVisible = true; void refreshAiWorks()"><Bell :size="20"/><strong v-if="notificationUnreadCount" class="notification-badge">{{ notificationUnreadCount > 99 ? '99+' : notificationUnreadCount }}</strong></button><button class="message-button glass-panel" type="button" aria-label="查看空间状态" title="空间状态" @click="spaceStatusVisible=true"><Activity :size="20"/></button><button class="message-button glass-panel" type="button" aria-label="打开设置" title="设置" @click="accountVisible=true"><Settings :size="21"/></button></div>
+        <div class="topbar-actions"><button class="message-button glass-panel notification-trigger" type="button" aria-label="打开通知中心" title="通知中心" @click="notificationVisible = true; void refreshAiWorks()"><Bell :size="20"/><strong v-if="notificationUnreadCount" class="notification-badge">{{ notificationUnreadCount > 99 ? '99+' : notificationUnreadCount }}</strong></button><button class="message-button glass-panel easter-trigger" type="button" aria-label="打开秘密彩蛋" title="只属于你们的秘密" @click="easterEggVisible=true"><Heart :size="19" fill="currentColor"/></button><button class="message-button glass-panel" type="button" aria-label="查看空间状态" title="空间状态" @click="spaceStatusVisible=true"><Activity :size="20"/></button><button class="message-button glass-panel" type="button" aria-label="打开设置" title="设置" @click="accountVisible=true"><Settings :size="21"/></button></div>
       </header>
 
       <section class="hero-section" :class="[{ 'has-cover': displayedHeroPhoto }, `photo-${heroPhotoShape}`]" :style="displayedHeroPhoto ? { '--hero-image': `url('${displayedHeroPhoto}')` } : undefined" aria-labelledby="love-days-title">
@@ -392,6 +523,17 @@ function syncOnlineState() {
           <button class="primary-button" type="button" @click="openTimelineComposer">
             <Plus :size="18" /> 记录此刻
           </button>
+          <div class="story-entry-grid">
+            <button class="story-entry-button" type="button" @click="openRomanceExperience('story')">
+              <Heart :size="16" fill="currentColor" /> <span>打开我们的故事</span>
+            </button>
+            <button class="story-entry-button" type="button" @click="openFutureMailbox">
+              <Mail :size="16" /> <span>写给未来的信</span>
+            </button>
+            <button class="story-entry-button" type="button" @click="voiceCapsuleVisible = true">
+              <Volume2 :size="16" /> <span>声音胶囊</span>
+            </button>
+          </div>
         </div>
         <div class="hero-photo" :class="{ empty: !displayedHeroPhoto }" :style="displayedHeroPhoto ? { '--photo-image': `url('${displayedHeroPhoto}')` } : undefined" role="img" :aria-label="displayedHeroPhoto ? '最新的共同照片' : '等待添加共同照片'">
           <img v-if="displayedHeroPhoto" :src="displayedHeroPhoto" alt="情侣空间封面" @error="refreshHero">
@@ -462,7 +604,7 @@ function syncOnlineState() {
             </div>
             <button class="text-button" type="button" @click="activeNav = '时光'">查看时光</button>
           </div>
-          <div v-if="latestSharedMedia.length" class="recent-media-grid"><button v-for="(media, mediaIndex) in latestSharedMedia" :key="media.id" type="button" @click="activeNav='相册'"><video v-if="media.mediaType==='video'" :src="media.url" muted playsinline preload="metadata" @loadedmetadata="homeVideoReady" @error="refreshHomeMedia($event, media.path, media.source === 'memory' ? 'memory-photos' : 'album-media')"/><img v-else :src="media.url" alt="最近共同回忆" :loading="mediaIndex < 4 ? 'eager' : 'lazy'" :fetchpriority="mediaIndex < 2 ? 'high' : 'low'" decoding="async" @error="refreshHomeMedia($event, media.path, media.source === 'memory' ? 'memory-photos' : 'album-media')"><span>{{media.takenDate}} · {{media.uploaderName}}</span></button></div>
+          <div v-if="latestSharedMedia.length" class="recent-media-grid"><button v-for="(media, mediaIndex) in latestSharedMedia" :key="media.id" type="button" @click="activeNav='相册'"><img :src="media.url" :alt="media.mediaType==='video' ? '最近共同视频封面' : '最近共同回忆'" :loading="mediaIndex < 4 ? 'eager' : 'lazy'" :fetchpriority="mediaIndex < 2 ? 'high' : 'low'" decoding="async" @error="refreshHomeMedia($event, media.path, media.source === 'memory' ? 'memory-photos' : 'album-media')"><Film v-if="media.mediaType==='video'" class="recent-video-mark" :size="17"/><span>{{media.takenDate}} · {{media.uploaderName}}</span></button></div>
           <button v-else class="empty-memory" type="button" @click="activeNav = '相册'"><Plus :size="19" /><span><strong>还没有共同照片</strong><small>从相册或时光上传第一张照片</small></span></button>
         </article>
       </section>
@@ -475,6 +617,8 @@ function syncOnlineState() {
      <main v-else-if="activeNav === '心动AI'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyHeartAiView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>心动 AI 暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
      <main v-else-if="activeNav === '宠物小屋'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyPetHouseView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>宠物小屋暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else class="main-content" />
+      </div>
+    </Transition>
 
     <nav class="mobile-nav glass-panel" aria-label="手机主要导航">
       <button
@@ -491,11 +635,15 @@ function syncOnlineState() {
       </button>
     </nav>
 
-    <LazyAccountPanel v-if="accountVisible" @close="accountVisible = false" @logout="leaveSpace" @unlinked="handleUnlinked" @relationship-updated="loadHomeData" />
-    <LazyChatPanel v-if="chatVisible" mode="drawer" @close="chatVisible = false" />
-    <CallScreen v-if="callStatus !== 'idle'" :partner="partnerMember" @minimized="chatVisible = false" />
-    <LazySpaceStatusPanel v-if="spaceStatusVisible" @close="spaceStatusVisible = false" @reconnect="reconnectSpaceServices" />
-    <NotificationCenterPanel v-if="notificationVisible" :notifications="notifications" :unread-count="notificationUnreadCount" :loading="notificationAiLoading" @close="notificationVisible = false" @read="markNotificationRead" @read-all="markAllNotificationsRead" @navigate="navigateFromNotification" @refresh="refreshAiWorks" />
+    <Transition name="layer" appear><LazyAccountPanel v-if="accountVisible" @close="accountVisible = false" @logout="leaveSpace" @unlinked="handleUnlinked" @relationship-updated="loadHomeData" /></Transition>
+    <Transition name="layer"><LazyChatPanel v-if="chatVisible" mode="drawer" @close="chatVisible = false" /></Transition>
+    <Transition name="layer"><CallScreen v-if="callStatus !== 'idle'" :partner="partnerMember" @minimized="chatVisible = false" /></Transition>
+    <Transition name="layer"><LazySpaceStatusPanel v-if="spaceStatusVisible" @close="spaceStatusVisible = false" @reconnect="reconnectSpaceServices" /></Transition>
+    <Transition name="layer"><NotificationCenterPanel v-if="notificationVisible" :notifications="notifications" :unread-count="notificationUnreadCount" :loading="notificationAiLoading" @close="notificationVisible = false" @read="markNotificationRead" @read-all="markAllNotificationsRead" @navigate="navigateFromNotification" @refresh="refreshAiWorks" /></Transition>
+    <Transition name="layer"><RomanceGiftExperience v-if="romanceGiftVisible" :mode="romanceGiftMode" @close="closeRomanceExperience" /></Transition>
+    <Transition name="layer"><FutureMailboxPanel v-if="futureMailboxVisible" @close="futureMailboxVisible = false" /></Transition>
+    <Transition name="layer"><VoiceCapsulePanel v-if="voiceCapsuleVisible" @close="voiceCapsuleVisible = false" /></Transition>
+    <Transition name="layer"><EasterEggPanel v-if="easterEggVisible" @close="easterEggVisible = false" /></Transition>
     <div v-if="coverPickerVisible" class="cover-picker-overlay" @click.self="coverPickerVisible = false">
       <section class="cover-picker">
         <header><div><p class="eyebrow">首页封面</p><h2>选择首页封面</h2></div><button type="button" aria-label="关闭" @click="coverPickerVisible = false"><X :size="20" /></button></header>
@@ -547,6 +695,14 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
     var(--bg);
 }
 .main-content, .mobile-nav { position: relative; z-index: 1; }
+.page-stage { position: relative; min-height: 1px; will-change: transform, opacity; }
+.page-stage-enter-active, .page-stage-leave-active { pointer-events: none; }
+.layer-enter-active, .layer-leave-active { transition: opacity .22s ease; }
+.layer-enter-from, .layer-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .page-stage { will-change: auto; }
+  .layer-enter-active, .layer-leave-active { transition: none; }
+}
 .page-error { display:grid;place-items:center;align-content:center;min-height:70vh;padding:30px;text-align:center; }
 .page-error h2 { margin:0;color:#4c2e56; }
 .page-error p { max-width:560px;color:#a24f72;font-size:11px;overflow-wrap:anywhere; }
@@ -671,7 +827,7 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .memory-content { display: grid; grid-template-columns: 190px 1fr; gap: 24px; align-items: center; margin-top: 20px; }
 .memory-photo { aspect-ratio: 16 / 9; border-radius: 18px; background: url('https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=800&q=82') center/cover; }
 .memory-photo.empty { background: var(--lavender-soft); }
-.recent-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.recent-media-grid button{position:relative;overflow:hidden;aspect-ratio:16/9;padding:0;border:0;border-radius:16px;background:#eee5f1}.recent-media-grid img,.recent-media-grid video{display:block;width:100%;height:100%;object-fit:cover}.recent-media-grid span{position:absolute;right:7px;bottom:7px;left:7px;padding:6px 8px;border-radius:9px;background:rgba(41,31,46,.52);color:#fff;font-size:8px;text-align:left}
+.recent-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.recent-media-grid button{position:relative;overflow:hidden;aspect-ratio:16/9;padding:0;border:0;border-radius:16px;background:#eee5f1}.recent-media-grid img,.recent-media-grid video{display:block;width:100%;height:100%;object-fit:cover}.recent-media-grid span{position:absolute;right:7px;bottom:7px;left:7px;padding:6px 8px;border-radius:9px;background:rgba(41,31,46,.52);color:#fff;font-size:8px;text-align:left}.recent-video-mark{position:absolute;top:10px;left:10px;padding:4px;border-radius:8px;background:rgba(47,31,58,.62);color:#fff}
 .memory-copy > span { color: var(--pink); font-size: 10px; font-weight: 750; }
 .memory-copy h4 { margin-top: 6px; }
 .memory-copy p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.75; }
@@ -824,6 +980,10 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .app-shell :is(.memory-editor,.album-modal,.item-editor,.ann-editor) :is(input,textarea,select) { border-radius: 9px!important; }
 .app-shell :is(.memory-editor,.album-modal,.item-editor,.ann-editor) :is(.save-button,.confirm,.save) { border-radius: 9px!important; background: #53405a!important; }
 @media(max-width:650px){.app-shell{background:#f7f5f8}.glass-panel{backdrop-filter:none;-webkit-backdrop-filter:none}.hero-section{min-height:0;border-radius:15px}.hero-photo{min-height:178px;margin-left:0}.hero-copy{padding:24px 19px 26px}.panel{border-radius:14px}.mobile-nav{border-radius:14px;box-shadow:0 6px 20px rgba(48,37,54,.1)}.mobile-nav-button{border-radius:9px}.mobile-nav-button.active{background:#eee7f0;color:#583d60}}
+</style>
+<style>
+.story-entry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;width:100%}.story-entry-button{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:38px;padding:0 8px;border:1px solid rgba(255,255,255,.62);border-radius:13px;background:rgba(255,255,255,.32);color:#8d4b91;font-size:10px;font-weight:850;text-align:center;cursor:pointer;transition:transform .2s ease,color .2s ease,background .2s ease}.story-entry-button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.story-entry-button:hover{color:#713c86;background:rgba(255,255,255,.64);transform:translateY(-2px)}
+@media(max-width:650px){.story-entry-grid{grid-template-columns:1fr;gap:7px;margin-top:10px}.story-entry-button{justify-content:flex-start;padding:0 12px;font-size:10px}}
 </style>
 <style>
 /* Final home-cover rules: keep the real photo visible for square and portrait uploads. */

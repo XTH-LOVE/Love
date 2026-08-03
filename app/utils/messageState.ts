@@ -3,7 +3,10 @@ export type ChatMessage = {
   senderId: string
   content: string
   mediaPath: string
+  mediaPosterPath: string
   mediaUrl: string
+  mediaPosterUrl: string
+  mediaOriginalUrl: string
   mediaType: 'image' | 'video' | 'audio' | ''
   legacyMedia: boolean
   readAt: string
@@ -37,7 +40,10 @@ export function mapMessageRow(row: any, now = new Date().toISOString()): ChatMes
     senderId: String(row?.sender_id || ''),
     content: normalizeMessageContent(row?.content),
     mediaPath: String(path || ''),
+    mediaPosterPath: String(row?.media_poster_path || ''),
     mediaUrl: '',
+    mediaPosterUrl: '',
+    mediaOriginalUrl: '',
     mediaType: mediaType === 'video' || mediaType === 'audio' ? mediaType : mediaType === 'image' ? 'image' : '',
     legacyMedia: !row?.media_path && Boolean(row?.image_path),
     readAt: String(row?.read_at || ''),

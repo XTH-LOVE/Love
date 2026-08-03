@@ -2,7 +2,9 @@
 import './chat-calls.css'
 import './chat-calls-video.css'
 import { CheckCheck, FileImage, Film, Laugh, LoaderCircle, MapPin, Maximize2, Mic, PhoneCall, PhoneOff, Radio, RotateCcw, Send, Square, StopCircle, Video, Volume2, VolumeX, X } from '@lucide/vue'
-import { refreshMediaElement, revealVideoFrame } from '~/composables/useMediaUrls'
+import { createMediaSignedUrl, createVideoPosterFromUrl, refreshMediaElement, revealVideoFrame } from '~/composables/useMediaUrls'
+import { useGSAP } from '~/composables/useGSAP'
+import { useMotionSettings } from '~/composables/useMotionSettings'
 
 const props = withDefaults(defineProps<{ mode?: 'drawer' | 'page' }>(), { mode: 'drawer' })
 const emit = defineEmits<{ close: [] }>()
@@ -28,7 +30,14 @@ const errorMessage = ref('')
 const picker = ref<'emoji' | 'sticker' | ''>('')
 const gifInput = ref<HTMLInputElement | null>(null)
 const mediaViewer = ref<{ type: 'image' | 'video'; src: string } | null>(null)
+const mediaViewerRoot = ref<HTMLElement | null>(null)
+const { gsap } = useGSAP()
+const { shouldAnimate } = useMotionSettings()
+let mediaViewerTween: ReturnType<typeof gsap.fromTo> | undefined
 const scrollArea = ref<HTMLElement | null>(null)
+const videoSourceRequests = new Map<string, Promise<string>>()
+const videoPosterRequests = new Map<string, Promise<string>>()
+const videoPosterFallbacks = reactive<Record<string, string>>({})
 const self = computed(() => members.value.find(member => member.id === profile.value?.id))
 const partner = computed(() => members.value.find(member => member.id !== profile.value?.id))
 function sender(message: typeof messages.value[number]) { return message.senderId === profile.value?.id ? self.value : partner.value }
@@ -53,13 +62,44 @@ function mapLink(location: LocationData | null){return location ? `https://www.o
 async function scrollLatest(smooth = false) { await nextTick(); scrollArea.value?.scrollTo({ top: scrollArea.value.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }) }
 async function loadOlderAtTop() { if (!scrollArea.value || messagesLoadingMore.value || !messagesHasMore.value) return; const beforeHeight = scrollArea.value.scrollHeight; const beforeTop = scrollArea.value.scrollTop; await loadOlderMessages(); await nextTick(); if (scrollArea.value) scrollArea.value.scrollTop = scrollArea.value.scrollHeight - beforeHeight + beforeTop }
 function handleMessageScroll(event: Event) { const area = event.currentTarget as HTMLElement; if (area.scrollTop < 70) void loadOlderAtTop() }
-async function init() { await subscribeMembers(); await loadMessages(); await subscribe(); await ensureChannel().catch(() => undefined); await ensureLiveChannel().catch(() => undefined); await markRead(); await scrollLatest() }
+async function init() { await subscribeMembers(); await loadMessages(); await subscribe(); await ensureChannel().catch(() => undefined); await ensureLiveChannel().catch(() => undefined); await markRead(); await scrollLatest(); if (import.meta.client) window.setTimeout(() => messages.value.filter(message => message.mediaType === 'video').slice(-4).forEach(message => void prepareVideoPreview(message)), 450) }
 onMounted(init)
 function openMedia(type: 'image' | 'video', src: string) { mediaViewer.value = { type, src }; document.body.style.overflow = 'hidden' }
+function prefetchVideoMessage(message: typeof messages.value[number]) {
+  if (!message.mediaPath || message.mediaOriginalUrl || videoSourceRequests.has(message.id)) return
+  const request = createMediaSignedUrl($supabase, message.mediaPath, message.legacyMedia ? 'memory-photos' : 'message-media')
+  videoSourceRequests.set(message.id, request)
+  void request.then(src => { if (src) message.mediaOriginalUrl = src }).finally(() => videoSourceRequests.delete(message.id))
+}
+async function prepareVideoPreview(message: typeof messages.value[number]) {
+  if (message.mediaPosterUrl || videoPosterFallbacks[message.id] || videoPosterRequests.has(message.id)) return
+  prefetchVideoMessage(message)
+  const source = message.mediaOriginalUrl || await (videoSourceRequests.get(message.id) || Promise.resolve(''))
+  if (!source || message.mediaPosterUrl || videoPosterFallbacks[message.id]) return
+  const request = createVideoPosterFromUrl(source)
+  videoPosterRequests.set(message.id, request)
+  const poster = await request
+  if (poster) videoPosterFallbacks[message.id] = poster
+  videoPosterRequests.delete(message.id)
+}
+async function openVideoMessage(message: typeof messages.value[number]) {
+  prefetchVideoMessage(message)
+  const src = message.mediaOriginalUrl || await (videoSourceRequests.get(message.id) || Promise.resolve(''))
+  if (src) { message.mediaOriginalUrl = src; openMedia('video', src) }
+}
 function closeMedia() { mediaViewer.value = null; document.body.style.overflow = '' }
+watch(mediaViewer, async value => {
+  if (!value) { mediaViewerTween?.kill(); return }
+  await nextTick()
+  if (!shouldAnimate.value || !mediaViewerRoot.value) return
+  const media = mediaViewerRoot.value.querySelector('img, video')
+  if (!media) return
+  mediaViewerTween?.kill()
+  mediaViewerTween = gsap.fromTo(media, { autoAlpha: 0, scale: .96 }, { autoAlpha: 1, scale: 1, duration: .28, ease: 'power2.out', clearProps: 'opacity,visibility,transform' })
+})
 function handleViewerKeydown(event: KeyboardEvent) { if (event.key === 'Escape') closeMedia() }
 onMounted(() => window.addEventListener('keydown', handleViewerKeydown))
-onBeforeUnmount(() => { stopRecording(true); closeMedia(); window.removeEventListener('keydown', handleViewerKeydown); if (preview.value) URL.revokeObjectURL(preview.value) })
+onBeforeUnmount(() => { mediaViewerTween?.kill(); stopRecording(true); closeMedia(); window.removeEventListener('keydown', handleViewerKeydown); if (preview.value) URL.revokeObjectURL(preview.value); Object.values(videoPosterFallbacks).forEach(url => URL.revokeObjectURL(url)) })
 watch(() => messages.value.length, async () => { await markRead(); await scrollLatest(true) })
 
 function choose(event: Event) {
@@ -110,6 +150,7 @@ function audioReady(id:string,event:Event){const audio=event.currentTarget as HT
 function toggleAudio(id:string,event:Event){const button=event.currentTarget as HTMLElement;const audio=button.querySelector('audio') as HTMLAudioElement|null;if(!audio)return;if(audio.paused){document.querySelectorAll<HTMLAudioElement>('.voice-player audio').forEach(item=>{if(item!==audio)item.pause()});audio.play();playingAudio.value=id}else{audio.pause();playingAudio.value=''}}
 function revealVideo(event:Event){ revealVideoFrame(event) }
 async function refreshMessageMedia(event: Event, message: typeof messages.value[number]) { await refreshMediaElement(event, $supabase, message.mediaPath, message.legacyMedia ? 'memory-photos' : 'message-media', message.mediaType === 'image' ? { width: 900, height: 900, resize: 'contain', quality: 80 } : undefined) }
+async function refreshMessagePoster(event: Event, message: typeof messages.value[number]) { if (message.mediaPosterPath) await refreshMediaElement(event, $supabase, message.mediaPosterPath, 'message-media', { width: 640, height: 400, resize: 'cover', quality: 72 }) }
 function videoFailed(event:Event){(event.currentTarget as HTMLVideoElement).classList.add('media-failed')}
 async function sendSticker(item: typeof stickers[number]) { if (busy.value) return; busy.value = true; try { await send(`::sticker:${item.id}:${item.label}::`); picker.value = '' } catch (error: any) { errorMessage.value = error?.message || '表情包发送失败' } finally { busy.value = false } }
 async function recallMessage(message:typeof messages.value[number]){if(busy.value||!confirm('确定撤回这条消息吗？'))return;busy.value=true;errorMessage.value='';try{await recall(message)}catch(error:any){errorMessage.value=error?.message||'消息撤回失败'}finally{busy.value=false}}
@@ -189,9 +230,9 @@ async function submit() {
           <article :class="{ mine: message.senderId === profile?.id }">
             <b class="sender-name">{{message.senderId===profile?.id?'我 · ':''}}{{sender(message)?.displayName||(message.senderId===profile?.id?'我':'TA')}}</b>
             <div class="bubble-row"><div class="message-avatar"><img v-if="sender(message)?.avatarUrl" :src="sender(message)?.avatarUrl" alt="发送者头像"><span v-else>{{sender(message)?.displayName?.slice(0,1)||(message.senderId===profile?.id?'我':'TA')}}</span></div><div v-if="stickerData(message.content)" class="sticker-message"><b>{{ stickerArt(stickerData(message.content)!.id) }}</b><span>{{ stickerData(message.content)!.label }}</span></div>
-            <div v-else class="bubble" :class="{ 'has-media': message.mediaUrl, 'voice-bubble': message.mediaType === 'audio', 'location-bubble': !!locationData(message.content) }">
-              <div v-if="message.mediaUrl && message.mediaType === 'image'" class="media-frame"><img :src="message.mediaUrl" alt="聊天图片" @click="openMedia('image', message.mediaUrl)" @error="refreshMessageMedia($event, message)"><button type="button" class="media-expand" title="放大查看" aria-label="放大查看图片" @click.stop="openMedia('image', message.mediaUrl)"><Maximize2 :size="16" /></button></div>
-              <div v-if="message.mediaUrl && message.mediaType === 'video'" class="media-frame"><video :src="message.mediaUrl" controls playsinline preload="auto" @loadedmetadata="revealVideo" @error="videoFailed; refreshMessageMedia($event, message)" /><button type="button" class="media-expand" title="放大查看" aria-label="放大查看视频" @click.stop="openMedia('video', message.mediaUrl)"><Maximize2 :size="16" /></button></div>
+            <div v-else class="bubble" :class="{ 'has-media': message.mediaUrl || message.mediaPath, 'voice-bubble': message.mediaType === 'audio', 'location-bubble': !!locationData(message.content) }">
+              <div v-if="message.mediaUrl && message.mediaType === 'image'" class="media-frame"><img :src="message.mediaUrl" alt="聊天图片" loading="lazy" decoding="async" @click="openMedia('image', message.mediaUrl)" @error="refreshMessageMedia($event, message)"><button type="button" class="media-expand" title="放大查看" aria-label="放大查看图片" @click.stop="openMedia('image', message.mediaUrl)"><Maximize2 :size="16" /></button></div>
+              <div v-if="(message.mediaPath || message.mediaUrl) && message.mediaType === 'video'" class="media-frame video-message-frame" @mouseenter="prepareVideoPreview(message)" @focusin="prepareVideoPreview(message)"><button v-if="message.mediaPosterUrl || videoPosterFallbacks[message.id]" class="video-poster-button" type="button" @click="openVideoMessage(message)"><img :src="message.mediaPosterUrl || videoPosterFallbacks[message.id]" alt="短视频封面" class="video-poster" @error="message.mediaPosterUrl && refreshMessagePoster($event, message)"><span class="video-poster-caption"><Film :size="14" /> 播放视频</span></button><video v-else-if="message.mediaUrl" :src="message.mediaUrl" controls playsinline preload="none" @error="videoFailed" /><button v-else class="video-lazy-placeholder" type="button" @click="openVideoMessage(message)"><span class="video-fallback-icon"><Film :size="24" /></span><strong>视频回忆</strong><small>{{ message.mediaOriginalUrl ? '点击播放' : '正在准备封面' }}</small></button><button type="button" class="media-expand" title="放大查看视频" aria-label="放大查看视频" @click.stop="openVideoMessage(message)"><Maximize2 :size="16" /></button></div>
               <button v-if="message.mediaUrl && message.mediaType === 'audio'" class="voice-player" type="button" :class="{playing:playingAudio===message.id}" @click="toggleAudio(message.id,$event)"><span class="voice-waves"><i/><i/><i/></span><b>{{audioDurations[message.id]||'...'}}″</b><audio :src="message.mediaUrl" preload="metadata" @loadedmetadata="audioReady(message.id,$event)" @ended="playingAudio=''"/></button>
               <div v-if="locationData(message.content)" class="location-card"><LocationMap :lat="locationData(message.content)?.lat ?? 0" :lng="locationData(message.content)?.lng ?? 0" :accuracy="locationAccuracy(message.content)"/><div><span><MapPin :size="15"/> {{ sender(message)?.displayName || 'TA' }} 分享了当前位置</span><small>定位精度约 {{ locationAccuracy(message.content) }} 米 · {{ locationLabel(locationData(message.content)) }}</small><a :href="mapLink(locationData(message.content))" target="_blank" rel="noopener">在地图中打开</a></div></div>
               <p v-else-if="message.content">{{ message.content }}</p>
@@ -224,7 +265,7 @@ async function submit() {
       </form>
     </section>
     <Teleport to="body">
-      <div v-if="mediaViewer" class="media-viewer" role="dialog" aria-modal="true" aria-label="媒体预览" @click.self="closeMedia">
+      <div v-if="mediaViewer" ref="mediaViewerRoot" class="media-viewer" role="dialog" aria-modal="true" aria-label="媒体预览" @click.self="closeMedia">
         <button type="button" class="media-viewer-close" title="关闭预览" aria-label="关闭预览" @click="closeMedia"><X :size="20" /></button>
         <img v-if="mediaViewer.type === 'image'" :src="mediaViewer.src" alt="放大后的聊天图片">
         <video v-else :src="mediaViewer.src" controls autoplay playsinline preload="auto" />
@@ -247,6 +288,8 @@ form{position:relative;z-index:2;padding:12px 16px 15px;border-top:1px solid rgb
 .bubble audio{display:block;width:min(260px,70vw);height:42px}.send-preview audio{width:210px;height:42px}.recording-time{align-self:center;color:#c34f7a;font-size:10px;font-weight:750}@media(max-width:700px){.chat-tools{align-items:center;overflow-x:auto}.bubble audio{width:min(240px,68vw)}form{background:rgba(255,250,255,.98);backdrop-filter:none;-webkit-backdrop-filter:none}}
 .message-meta>button{display:grid;place-items:center;width:26px;height:26px;margin-left:1px;padding:0;border:0;border-radius:50%;background:transparent;color:#aa91ad;cursor:pointer}.message-meta>button:active{background:#f0e1f3;color:#824b93}.message-meta .read-check{color:#a468b0}
 .media-frame{position:relative;max-width:420px}.media-frame img,.media-frame video{cursor:zoom-in}.media-expand{position:absolute;right:10px;bottom:10px;display:grid;place-items:center;width:32px;height:32px;border:1px solid rgba(255,255,255,.8);border-radius:10px;background:rgba(49,36,57,.62);color:#fff;cursor:pointer;opacity:.9}.media-expand:hover{background:rgba(49,36,57,.82)}.media-viewer{position:fixed;z-index:500;inset:0;display:grid;place-items:center;padding:clamp(20px,5vw,70px);background:rgba(22,15,29,.88);backdrop-filter:blur(18px)}.media-viewer img,.media-viewer video{display:block;width:auto;max-width:100%;height:auto;max-height:calc(100dvh - 40px);border-radius:18px;object-fit:contain;box-shadow:0 24px 80px rgba(0,0,0,.4)}.media-viewer-close{position:absolute;z-index:1;top:max(18px,env(safe-area-inset-top));right:max(18px,env(safe-area-inset-right));display:grid;place-items:center;width:42px;height:42px;border:1px solid rgba(255,255,255,.45);border-radius:14px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer}.gif-button{font-size:11px!important;font-weight:850;letter-spacing:.2px}
+.media-frame .video-poster{display:block;width:min(100%,420px);height:auto;aspect-ratio:16/10;max-height:280px;object-fit:cover;border-radius:18px;background:linear-gradient(135deg,#eadcf3,#f7dce8)}
+.video-message-frame{overflow:hidden;border-radius:18px}.video-message-frame>video{display:block;width:min(100%,420px);height:auto;aspect-ratio:16/10;max-height:280px;object-fit:cover}.video-poster-button,.video-lazy-placeholder{position:relative;display:block;width:min(100%,420px);padding:0;border:0;background:transparent;cursor:zoom-in}.video-poster-caption{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:5px;padding:7px 9px;border-radius:10px;background:rgba(42,28,51,.68);color:#fff;font-size:10px;font-weight:800;box-shadow:0 5px 16px rgba(42,28,51,.18)}.video-lazy-placeholder{display:flex;min-height:180px;aspect-ratio:16/10;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:18px;background:radial-gradient(circle at 25% 20%,rgba(255,255,255,.72),transparent 30%),linear-gradient(135deg,#d7c4e9,#f6cddd 58%,#c8dbef);color:#62466f;font-size:12px;font-weight:750}.video-lazy-placeholder small{color:#8d7392;font-size:9px;font-weight:700}.video-fallback-icon{display:grid;place-items:center;width:48px;height:48px;border:1px solid rgba(255,255,255,.72);border-radius:16px;background:rgba(255,255,255,.42);color:#8b5599;box-shadow:0 8px 20px rgba(91,48,107,.12)}.video-lazy-placeholder:hover{background:radial-gradient(circle at 25% 20%,rgba(255,255,255,.8),transparent 30%),linear-gradient(135deg,#cfb9e4,#f3c2d5 58%,#bbd2e9)}
 .sender-name{max-width:220px;overflow:hidden;margin:0 5px 4px 50px;color:#8d718f;font-size:9px;font-weight:750;text-overflow:ellipsis;white-space:nowrap}.mine .sender-name{margin-right:50px;margin-left:5px}.bubble-row{display:flex;align-items:flex-start;gap:8px;max-width:100%}.mine .bubble-row{flex-direction:row-reverse}.message-meta{display:flex;align-items:center;gap:4px;margin-top:5px;margin-left:50px;color:#a394a7;font-size:9px}.mine .message-meta{margin-right:50px;margin-left:0}.message-avatar{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;overflow:hidden;border:2px solid rgba(255,255,255,.9);border-radius:50%;background:linear-gradient(135deg,#ad78ca,#ea8bb3);color:#fff;font-size:12px;font-weight:800;box-shadow:0 5px 14px rgba(104,63,117,.14)}.message-avatar img{width:100%;height:100%;object-fit:cover}@media(max-width:650px){.bubble-row{gap:6px}.message-avatar{width:40px;height:40px;flex-basis:40px}.sender-name{margin-left:46px}.mine .sender-name{margin-right:46px}.message-meta{margin-left:46px}.mine .message-meta{margin-right:46px}.bubble{min-height:40px}}
 .bubble.voice-bubble{min-width:138px;padding:0;overflow:hidden}.voice-player{display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;height:44px;padding:0 14px;border:0;border-radius:inherit;background:transparent;color:#76507d;cursor:pointer}.mine .voice-player{flex-direction:row-reverse;color:#743e83}.voice-player audio{display:none}.voice-player b{min-width:28px;color:#987f9c;font-size:10px;font-weight:700;text-align:right}.mine .voice-player b{text-align:left}.voice-waves{display:flex;align-items:center;gap:2px;width:24px;height:22px}.mine .voice-waves{flex-direction:row-reverse}.voice-waves i{display:block;width:3px;border-radius:3px;background:currentColor;transform-origin:center}.voice-waves i:nth-child(1){height:7px;opacity:.62}.voice-waves i:nth-child(2){height:13px;opacity:.8}.voice-waves i:nth-child(3){height:19px}.voice-player.playing .voice-waves i{animation:voice-wave .7s ease-in-out infinite alternate}.voice-player.playing .voice-waves i:nth-child(2){animation-delay:.12s}.voice-player.playing .voice-waves i:nth-child(3){animation-delay:.24s}@keyframes voice-wave{to{transform:scaleY(.38);opacity:.45}}.preview-voice{width:145px;border-radius:18px;background:linear-gradient(135deg,#ead6f7,#fbd9e7)}
 .bubble video,.send-preview video{background:linear-gradient(135deg,#eadcf3,#f7dce8)}.bubble video.media-failed,.send-preview video.media-failed{min-height:120px;background:linear-gradient(135deg,#e8d8f1,#f5dce7)}
@@ -257,4 +300,10 @@ form{position:relative;z-index:2;padding:12px 16px 15px;border-top:1px solid rgb
 .live-button{color:#9c4a87!important}.live-button.active{background:linear-gradient(135deg,#9b55c6,#e36f9f)!important;color:#fff!important;box-shadow:0 8px 18px rgba(157,72,150,.25)!important}.live-mic-banner{position:relative;z-index:3;display:flex;align-items:center;gap:10px;margin:0 18px 8px;padding:10px 12px;border:1px solid rgba(215,151,196,.26);border-radius:17px;background:linear-gradient(120deg,rgba(244,224,251,.88),rgba(255,224,237,.88));box-shadow:0 8px 20px rgba(104,57,118,.08)}.live-mic-banner.broadcasting{background:linear-gradient(120deg,rgba(226,205,253,.92),rgba(255,211,232,.9))}.live-mic-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:11px;background:rgba(255,255,255,.72);color:#a34e94}.live-mic-banner>div{min-width:0;flex:1}.live-mic-banner strong,.live-mic-banner small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.live-mic-banner strong{color:#633a6f;font-size:12px}.live-mic-banner small{margin-top:3px;color:#977b9e;font-size:10px}.live-mic-banner>button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:10px;background:rgba(255,255,255,.68);color:#7b4a86;cursor:pointer}.live-mic-error{position:relative;z-index:3;margin:-1px 20px 8px;color:#b64f76;font-size:10px}
 .call-avatar{overflow:hidden}.call-avatar img{width:100%;height:100%;object-fit:cover}
 @media(max-width:650px){.live-mic-banner{margin:0 12px 7px;padding:9px 10px}.live-mic-banner strong{font-size:11px}.live-mic-banner small{font-size:9px}.live-button{display:grid!important}.chat-panel>header .partner-avatar{width:44px;height:44px;min-width:44px;flex-basis:44px}}
+</style>
+<style scoped>
+.message-area article { content-visibility: auto; contain-intrinsic-size: 96px; }
+@media (max-width: 650px) {
+  .bubble { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
 </style>

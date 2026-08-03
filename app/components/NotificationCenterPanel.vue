@@ -1,17 +1,31 @@
 <script setup lang="ts">
 import { Bell, CalendarDays, CheckCheck, Flame, MessageCircleHeart, PawPrint, RefreshCw, Sparkles, Upload, X } from '@lucide/vue'
 import type { AppNotification, NotificationTarget } from '~/composables/useNotificationCenter'
+import { useGSAP } from '~/composables/useGSAP'
+import { useMotionSettings } from '~/composables/useMotionSettings'
 
 defineProps<{ notifications: AppNotification[]; unreadCount: number; loading?: boolean }>()
 const emit = defineEmits<{ close: []; read: [id: string]; readAll: []; navigate: [target: NotificationTarget]; refresh: [] }>()
+const notificationRoot = ref<HTMLElement | null>(null)
+const { gsap } = useGSAP()
+const { shouldAnimate } = useMotionSettings()
+let notificationTimeline: ReturnType<typeof gsap.timeline> | undefined
 const icons = { message: MessageCircleHeart, anniversary: CalendarDays, streak: Flame, pet: PawPrint, ai: Sparkles, upload: Upload }
 const labels = { message: '悄悄话', anniversary: '纪念日', streak: '火花', pet: '宠物', ai: '心动 AI', upload: '媒体' }
 function formatTime(value: string) { const date = new Date(value); if (Number.isNaN(date.getTime())) return ''; return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date) }
 function open(item: AppNotification) { emit('read', item.id); emit('navigate', item.target) }
+onMounted(async () => {
+  await nextTick()
+  if (!shouldAnimate.value || !notificationRoot.value) return
+  notificationTimeline = gsap.timeline({ defaults: { ease: 'power2.out' } })
+    .fromTo(notificationRoot.value.querySelector('.notification-panel'), { autoAlpha: 0, y: 18, scale: .98 }, { autoAlpha: 1, y: 0, scale: 1, duration: .3, clearProps: 'opacity,visibility,transform' })
+    .fromTo(notificationRoot.value.querySelectorAll('.notification-item'), { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: .22, stagger: .035, clearProps: 'opacity,visibility,transform' }, '-=.12')
+})
+onBeforeUnmount(() => notificationTimeline?.kill())
 </script>
 
 <template>
-  <div class="notification-overlay" @click.self="emit('close')">
+  <div ref="notificationRoot" class="notification-overlay" @click.self="emit('close')">
     <section class="notification-panel glass-panel" aria-label="通知中心">
       <header class="notification-header">
         <div><p class="eyebrow">SPACE UPDATES</p><h2><Bell :size="20" /> 通知中心 <span v-if="unreadCount">{{ unreadCount }}</span></h2></div>

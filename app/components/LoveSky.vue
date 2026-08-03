@@ -28,5 +28,5 @@ const pieces = Array.from({ length: 220 }, (_, index) => {
 </template>
 
 <style scoped>
-.love-sky{position:fixed;z-index:0;inset:0;overflow:hidden;pointer-events:none;contain:strict}.love-piece{position:absolute;will-change:transform;animation:float-heart 18s ease-in-out infinite alternate}@keyframes float-heart{0%{transform:translate3d(-2px,4px,0) rotate(-4deg)}100%{transform:translate3d(3px,-6px,0) rotate(3deg)}}@media(max-width:650px){.love-piece{animation:none}.love-piece:nth-child(n+73){display:none}}@media(prefers-reduced-motion:reduce){.love-piece{animation:none}}
+.love-sky{position:fixed;z-index:0;inset:0;overflow:hidden;pointer-events:none;contain:strict}.love-piece{position:absolute;animation:float-heart 18s ease-in-out infinite alternate}@keyframes float-heart{0%{transform:translate3d(-2px,4px,0) rotate(-4deg)}100%{transform:translate3d(3px,-6px,0) rotate(3deg)}}@media(max-width:1100px){.love-piece:nth-child(n+121){display:none}}@media(max-width:650px){.love-piece{animation:none}.love-piece:nth-child(n+73){display:none}}@media(prefers-reduced-motion:reduce){.love-piece{animation:none}}
 </style>

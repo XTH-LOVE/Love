@@ -3,6 +3,12 @@ import './auth-pastel-theme.css'
 import './auth-single-card.css'
 import { ArrowLeft, Check, Copy, Heart, KeyRound, Link2, LoaderCircle, Mail, ShieldCheck, Sparkles, UserRound } from '@lucide/vue'
 
+const authRoot = ref<HTMLElement | null>(null)
+const { gsap, context } = useGSAP()
+const { shouldAnimate, motionReady } = useMotionSettings()
+let animationContext: ReturnType<typeof context>
+let panelTimeline: ReturnType<typeof gsap.timeline> | undefined
+
 const emit = defineEmits<{ complete: [] }>()
 const { configured, demoMode, loading, profile, stage, signIn, signUp, signInWithAccount, signUpWithAccount, signInWithOAuth, recoverAccount, resendConfirmation, createCouple, joinCouple } = useCoupleAuth()
 const mode = ref<'login' | 'register'>('login')
@@ -23,6 +29,50 @@ const generatedCode = ref('')
 const errorMessage = ref('')
 const copied = ref(false)
 const resendStatus = ref('')
+
+function playVisualIntro() {
+  const root = authRoot.value
+  if (!root || !motionReady.value) return
+  const visualItems = root.querySelectorAll('.brand, .visual-copy > *, .visual-note, .visual-pair, .visual-memory, .visual-emblem')
+  animationContext?.add(() => {
+    if (!shouldAnimate.value) return
+    gsap.timeline({ defaults: { ease: 'power3.out' } })
+      .from('.auth-visual', { autoAlpha: 0, x: -24, duration: 0.62 })
+      .from(visualItems, { autoAlpha: 0, y: 16, stagger: 0.06, duration: 0.38 }, '-=0.38')
+  })
+}
+
+function playPanelIntro() {
+  const root = authRoot.value
+  const card = root?.querySelector('.auth-card')
+  if (!root || !card || !motionReady.value) return
+  const cardChildren = Array.from(card.children)
+  panelTimeline?.kill()
+  gsap.set([card, ...cardChildren], { clearProps: 'transform,opacity,visibility' })
+  animationContext?.add(() => {
+    gsap.killTweensOf([card, ...cardChildren])
+    if (!shouldAnimate.value) return
+    panelTimeline = gsap.timeline({ defaults: { ease: 'power3.out' } })
+      .from(cardChildren, { autoAlpha: 0, y: 12, stagger: 0.045, duration: 0.3 })
+  })
+}
+
+watch([stage, mode, pairingMode, recovering, generatedRecoveryCode], async () => {
+  await nextTick()
+  playPanelIntro()
+})
+
+onMounted(async () => {
+  animationContext = context(authRoot.value, () => undefined)
+  await nextTick()
+  playVisualIntro()
+  playPanelIntro()
+})
+
+onBeforeUnmount(() => {
+  panelTimeline?.kill()
+  animationContext?.revert()
+})
 
 async function submitAuth() {
   errorMessage.value = ''
@@ -81,7 +131,7 @@ async function resendEmail() {
 </script>
 
 <template>
-  <main id="auth-single-card" class="auth-screen">
+  <main ref="authRoot" id="auth-single-card" class="auth-screen" :class="{ 'motion-ready': motionReady }">
     <section class="auth-visual" aria-label="情侣空间介绍">
       <div class="brand"><span><Heart :size="20" fill="currentColor" /></span> Love小家</div>
       <div class="visual-photo" aria-hidden="true"><i /><img class="visual-memory" src="/login-couple.jpg" alt=""><img class="visual-emblem" src="/couplespace-mark.svg" alt=""></div>
@@ -175,6 +225,31 @@ async function resendEmail() {
 <style scoped>
 /* Floating login island. !important keeps this layer above legacy component rules. */
 .auth-workspace{position:relative;overflow:hidden;padding:clamp(34px,6vw,84px)!important;background:linear-gradient(145deg,#f3dcf4 0%,#eadcf9 48%,#d9edfb 100%)!important}.auth-workspace::before,.auth-workspace::after{content:'';position:absolute;pointer-events:none;opacity:.68}.auth-workspace::before{width:340px;height:340px;top:-130px;right:-110px;border:1px solid rgba(255,255,255,.7);border-radius:48px;background:linear-gradient(135deg,rgba(255,255,255,.52),rgba(255,255,255,.03));transform:rotate(24deg);animation:login-float 7s ease-in-out infinite alternate}.auth-workspace::after{width:180px;height:260px;right:18%;bottom:-125px;border:1px solid rgba(172,105,205,.18);border-radius:36px;background:linear-gradient(145deg,rgba(255,178,218,.35),rgba(139,193,239,.18));transform:rotate(-20deg);animation:login-float 6s ease-in-out .8s infinite alternate}.auth-card{position:relative;z-index:1;width:min(100%,450px)!important;padding:34px!important;border:1px solid rgba(255,255,255,.9)!important;border-radius:30px!important;background:linear-gradient(145deg,rgba(255,255,255,.7),rgba(255,241,250,.58))!important;box-shadow:0 24px 55px rgba(104,52,123,.19),inset 0 1px rgba(255,255,255,.92)!important;backdrop-filter:blur(20px) saturate(125%)!important}.auth-heading{padding-bottom:20px;border-bottom:1px solid rgba(157,94,174,.13)}.auth-heading h2{font-size:32px!important;color:#572a65!important}.auth-heading>span{color:#826f89!important}.auth-heading>p{color:#ad5d98!important}.login-type{margin-top:22px!important;padding:6px!important;border:1px solid rgba(255,255,255,.62)!important;border-radius:20px!important;background:linear-gradient(135deg,rgba(228,197,250,.8),rgba(253,211,229,.76))!important;box-shadow:inset 0 1px rgba(255,255,255,.8)}.login-type button{min-height:42px!important;border-radius:15px!important}.login-type button.active{background:rgba(255,255,255,.86)!important;color:#8b3f91!important;box-shadow:0 7px 18px rgba(122,55,136,.16)!important}.auth-form{gap:15px!important;margin-top:25px!important}.auth-form label>span{color:#765d7d!important;font-weight:760!important}.auth-form label>div{height:56px!important;border:1px solid rgba(209,173,224,.74)!important;border-radius:19px!important;background:rgba(255,255,255,.72)!important;box-shadow:inset 0 1px rgba(255,255,255,.9)!important;transition:transform .2s ease,box-shadow .2s ease}.auth-form label>div:focus-within{border-color:#c474bc!important;box-shadow:0 0 0 4px rgba(211,96,165,.12),0 8px 18px rgba(128,68,145,.11)!important;transform:translateY(-1px)}.auth-submit{min-height:55px!important;margin-top:8px!important;border-radius:21px!important;background:linear-gradient(100deg,#8041c2,#e05c9f 55%,#68b5e9)!important;box-shadow:0 15px 30px rgba(142,58,155,.28)!important;transition:transform .2s ease,filter .2s ease}.auth-submit:hover{transform:translateY(-2px) scale(1.012);filter:saturate(1.08)}.mode-switch{margin-top:20px!important;color:#93558b!important}.demo-banner{border:1px solid rgba(180,111,198,.18);border-radius:14px;background:rgba(255,255,255,.5)}@keyframes login-float{to{transform:translateY(-14px) rotate(30deg)}}@media(max-width:820px){.auth-workspace{padding:30px 20px 52px!important}.auth-card{padding:25px 20px!important;border-radius:25px!important}.auth-workspace::after{display:none}.auth-heading h2{font-size:27px!important}}
+</style>
+<style scoped>
+/* Mobile auth uses the page as the only vertical scroll surface. */
+@media (max-width: 650px) {
+  #auth-single-card#auth-single-card {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    min-height: 100dvh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #auth-single-card#auth-single-card .auth-card.auth-card {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+  }
+}
+</style>
+
+<style scoped>
+.motion-ready .auth-workspace::before,.motion-ready .auth-workspace::after,.motion-ready .visual-memory,.motion-ready .visual-emblem{animation:none!important}
 </style>
 
 <style scoped>

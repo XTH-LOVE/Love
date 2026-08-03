@@ -1,12 +1,37 @@
 <script setup lang="ts">
 import { Check, CloudOff, LoaderCircle, RefreshCw, UploadCloud, X } from '@lucide/vue'
+import { useGSAP } from '~/composables/useGSAP'
+import { useMotionSettings } from '~/composables/useMotionSettings'
 
 const { jobs, retry, dismissJob } = useMediaUploadQueue()
 const visibleJobs = computed(() => jobs.value.filter(job => job.status !== 'completed'))
+const queueRef = ref<HTMLElement | null>(null)
+const { gsap } = useGSAP()
+const { shouldAnimate } = useMotionSettings()
+let queueTween: ReturnType<typeof gsap.fromTo> | undefined
+
+async function animateQueue() {
+  await nextTick()
+  queueTween?.kill()
+  if (!shouldAnimate.value || !queueRef.value || !visibleJobs.value.length) return
+  const cards = queueRef.value.querySelectorAll('article')
+  if (!cards.length) return
+  queueTween = gsap.fromTo(cards, { autoAlpha: 0, y: 8 }, {
+    autoAlpha: 1,
+    y: 0,
+    duration: 0.28,
+    stagger: 0.045,
+    ease: 'power2.out',
+    clearProps: 'opacity,visibility,transform',
+  })
+}
+
+watch(() => visibleJobs.value.map(job => job.id).join(','), animateQueue, { immediate: true })
+onBeforeUnmount(() => queueTween?.kill())
 </script>
 
 <template>
-  <aside v-if="visibleJobs.length" class="upload-queue" aria-live="polite">
+  <aside v-if="visibleJobs.length" ref="queueRef" class="upload-queue" aria-live="polite">
     <header><div><UploadCloud :size="17" /><strong>媒体上传</strong><span>{{ visibleJobs.length }} 项</span></div><button type="button" aria-label="关闭上传列表" title="关闭已失败项目" @click="visibleJobs.filter(job => job.status === 'failed').forEach(job => dismissJob(job.id))"><X :size="15" /></button></header>
     <article v-for="job in visibleJobs" :key="job.id">
       <div class="job-title"><span>{{ job.name }}</span><small>{{ (job.size / 1024 / 1024).toFixed(1) }} MB</small></div>

@@ -114,3 +114,6 @@ defineExpose({ openCreate })
 <style scoped>
 @media(max-width:650px){.editor-overlay{padding-top:env(safe-area-inset-top)}.memory-editor{max-height:calc(100dvh - env(safe-area-inset-top))}.timeline-header h1{font-size:23px!important}.memory-card>p{font-size:12px}}
 </style>
+<style scoped>
+.timeline-entry { content-visibility: auto; contain-intrinsic-size: 260px 420px; }
+</style>

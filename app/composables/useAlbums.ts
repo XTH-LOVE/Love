@@ -29,7 +29,9 @@ export function useAlbums() {
   function mapAlbumPhotoRows(rows: any[]) {
     return rows.map((row: any) => { const path = row.path || row.original_path || ''; const legacy=!path.includes('/album-media/'); const mediaType=row.media_type||'image'; return { id: row.id, path, thumbPath: row.thumb_path || '', mediumPath: row.medium_path || '', originalPath: row.original_path || path, videoPosterPath: row.video_poster_path || '', videoPosterUrl: '', url: '', loadState: 'pending' as const, takenDate: row.taken_date, albumId: row.album_id, albumName: row.albums?.name || '', source: 'album' as const, caption: row.caption || '', mediaType, uploadedBy: row.uploaded_by, uploaderName: row.profiles?.display_name||'情侣成员', legacy } })
   }
-  function displayPath(photo: GalleryPhoto) { return photo.mediaType === 'image' ? (photo.thumbPath || photo.path) : photo.path }
+  // Video tiles should request the lightweight poster, never the original movie.
+  // The original path is loaded only when the lightbox is opened.
+  function displayPath(photo: GalleryPhoto) { return photo.mediaType === 'image' ? (photo.thumbPath || photo.path) : (photo.videoPosterPath || '') }
   function originalPath(photo: GalleryPhoto) { return photo.originalPath || photo.path }
   function photoNeedsTransform(photo: GalleryPhoto) { return photo.mediaType === 'image' && !photo.thumbPath }
   const albumPhotoSelect = 'id, path, thumb_path, medium_path, original_path, video_poster_path, taken_date, album_id, caption, media_type, uploaded_by, albums(name), profiles!album_photos_uploaded_by_fkey(display_name)'
@@ -58,8 +60,7 @@ export function useAlbums() {
         try {
           const requests = chunk.map(photo => ({ photo, path: displayPath(photo), bucket: photo.legacy ? 'memory-photos' : 'album-media' }))
           const urls = await createMediaSignedUrls($supabase, requests.map(item => ({ path: item.path, bucket: item.bucket, transform: photoNeedsTransform(item.photo) ? imageTransform : undefined })))
-          chunk.forEach(photo => { const path = displayPath(photo); photo.url = urls.get(`${photo.legacy ? 'memory-photos' : 'album-media'}:${path}`) || ''; photo.loadState = photo.url ? 'ready' : 'error' })
-          await Promise.all(chunk.filter(photo => photo.mediaType === 'video' && photo.videoPosterPath).map(async photo => { photo.videoPosterUrl = await createMediaSignedUrl($supabase, photo.videoPosterPath!, photo.legacy ? 'memory-photos' : 'album-media') }))
+          chunk.forEach(photo => { const path = displayPath(photo); photo.url = path ? (urls.get(`${photo.legacy ? 'memory-photos' : 'album-media'}:${path}`) || '') : ''; photo.videoPosterUrl = photo.mediaType === 'video' && photo.videoPosterPath ? photo.url : ''; photo.loadState = photo.url || (photo.mediaType === 'video' && !photo.videoPosterPath) ? 'ready' : 'error' })
         } catch {
           // Never leave a tile in the infinite pending state when a batch
           // request fails unexpectedly. The tile can be retried individually.
@@ -103,6 +104,7 @@ export function useAlbums() {
     if (!photo.path) return
     photo.loadState = 'pending'
     const path = displayPath(photo)
+    if (!path && photo.mediaType === 'video') { photo.loadState = 'ready'; return }
     const transform = photoNeedsTransform(photo) ? galleryImageTransform : undefined
     photo.url = await createMediaSignedUrl($supabase, path, photo.legacy ? 'memory-photos' : 'album-media', transform)
     photo.loadState = photo.url ? 'ready' : 'error'

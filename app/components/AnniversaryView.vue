@@ -20,3 +20,6 @@ function dateText(x:Anniversary){return new Intl.DateTimeFormat('zh-CN',{year:'n
 <style scoped>
 @media(max-width:650px){.editor-overlay{padding-top:env(safe-area-inset-top)}.ann-editor{max-height:calc(100dvh - env(safe-area-inset-top))}.ann-header h1{font-size:23px!important}.love-counter{padding:22px 16px}}
 </style>
+<style scoped>
+.ann-list article { content-visibility: auto; contain-intrinsic-size: 84px 180px; }
+</style>
