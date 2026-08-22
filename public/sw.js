@@ -1,6 +1,5 @@
-const VERSION = 'love-home-shell-v1'
+const VERSION = 'love-home-shell-v2'
 const CORE_ASSETS = [
-  '/',
   '/manifest.webmanifest',
   '/couplespace-mark.svg',
   '/desktop-icon.png',
@@ -34,30 +33,35 @@ self.addEventListener('fetch', event => {
   // Avoid duplicating private photos, videos, audio, or API responses here.
   if (request.destination === 'image' || request.destination === 'video' || request.destination === 'audio' || url.pathname.startsWith('/api/')) return
 
+  // Navigation requests: network-first with cache fallback.
+  // Always fetch fresh HTML so asset hashes match the current deployment.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then(response => {
           const copy = response.clone()
-          void caches.open(VERSION).then(cache => cache.put('/', copy))
+          void caches.open(VERSION).then(cache => cache.put(request, copy))
           return response
         })
-        .catch(() => caches.match('/')
-          .then(response => response || new Response('Love小家当前离线，请稍后重试。', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }))),
+        .catch(() => caches.match(request)
+          .then(cached => cached || new Response('Love小家当前离线，请稍后重试。', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }))),
     )
     return
   }
 
+  // Content-hashed /_nuxt/ assets are immutable: cache-first, network fallback.
+  // Never synthesize error responses — let the browser surface real failures.
   if (url.pathname.startsWith('/_nuxt/') || CORE_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then(cached => {
-        const update = fetch(request)
-          .then(response => {
-            if (response.ok) void caches.open(VERSION).then(cache => cache.put(request, response.clone()))
-            return response
-          })
-          .catch(() => cached || new Response('', { status: 504, statusText: 'Offline asset unavailable' }))
-        return cached || update
+        if (cached) return cached
+        return fetch(request).then(response => {
+          if (response.ok) {
+            const copy = response.clone()
+            void caches.open(VERSION).then(cache => cache.put(request, copy))
+          }
+          return response
+        })
       }),
     )
   }

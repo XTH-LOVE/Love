@@ -2,34 +2,27 @@
 import '@fontsource-variable/manrope'
 import '@fontsource-variable/nunito-sans'
 import CallScreen from './components/CallScreen.vue'
+import HomePage from './components/HomePage.vue'
 import {
-  CalendarDays,
   Activity,
-  Check,
-  ChevronRight,
+  Calendar,
+  CalendarDays,
   Heart,
   Home,
   Image,
   ListChecks,
-  MapPin,
-  Mail,
   MessageCircleHeart,
-  Camera,
   X,
-  Plus,
   Settings,
-  Sparkles,
   History,
   BrainCircuit,
   PawPrint,
   Radio,
   StopCircle,
-  Volume2,
   VolumeX,
   WifiOff,
   RefreshCw,
   Bell,
-  Film,
 } from '@lucide/vue'
 import { notifySystem, requestSystemAlerts } from './composables/useSystemAlerts'
 import { createMediaSignedUrl, refreshMediaElement, revealVideoFrame } from './composables/useMediaUrls'
@@ -42,6 +35,7 @@ const navItems = [
   { label: '相册', icon: Image },
   { label: '清单', icon: ListChecks },
   { label: '纪念日', icon: CalendarDays },
+  { label: '日历', icon: Calendar },
   { label: '悄悄话', icon: MessageCircleHeart },
   { label: '心动AI', icon: BrainCircuit },
   { label: '宠物小屋', icon: PawPrint },
@@ -72,17 +66,12 @@ const easterEggVisible = ref(false)
 const chatVisible = ref(false)
 const messageToast = ref<{ sender: string; content: string } | null>(null)
 let messageToastTimer: ReturnType<typeof setTimeout> | undefined
-const coverPickerVisible = ref(false)
-const selectedCoverPath = ref('')
-const selectedCoverUrl = ref('')
-const displayedHeroPhoto = ref('')
-const heroPhotoShape = ref<'wide' | 'square' | 'portrait'>('wide')
 const { stage, profile, initialize, signOut } = useCoupleAuth()
 const { anniversaries, relationshipStart, loveDays, nextAnniversary, loadAnniversaries } = useAnniversaries()
 const { sync: syncAnniversaryReminders } = useAnniversaryReminders()
 const { memories, loadMemories } = useMemories()
 const { allPhotos, loadAlbums, subscribeAlbumPhotos, disconnectAlbumPhotos } = useAlbums()
-const { items: togetherItems, loadItems, toggleItem } = useTogetherList()
+const { items: togetherItems, loadItems } = useTogetherList()
 const { members, loadMembers, subscribeMembers, disconnectMembers } = useAccountManagement()
 const { partnerOnline, connectPresence, disconnectPresence } = useCouplePresence()
 const { messages, unreadCount, loadMessages, subscribe: subscribeMessages, markRead, disconnect: disconnectMessages } = useMessages()
@@ -92,6 +81,10 @@ const { register: registerPushNotifications } = usePushNotifications()
 const { notifications, unreadCount: notificationUnreadCount, aiLoading: notificationAiLoading, refreshAiWorks, markRead: markNotificationRead, markAllRead: markAllNotificationsRead } = useNotificationCenter()
 const { validate: validateStoryShare } = useStoryShare()
 const { $supabase } = useNuxtApp()
+
+const selfMember = computed(() => members.value.find(m => m.id === profile.value?.id) || members.value[0])
+const partnerMember = computed(() => members.value.find(m => m.id !== profile.value?.id))
+
 let pairedBootstrapStarted = false
 let romanceOpeningTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -101,47 +94,6 @@ function settleWithin<T>(promise: Promise<T>, timeout = 7000) {
     new Promise<T | undefined>(resolve => globalThis.setTimeout(() => resolve(undefined), timeout)),
   ])
 }
-
-const latestMemory = computed(() => memories.value[0] || null)
-const latestSharedMoment = computed(() => {
-  const photo = allPhotos.value[0]
-  if (!photo) return null
-  const memory = photo.source === 'memory'
-    ? memories.value.find(item => item.photos.some(itemPhoto => itemPhoto.path === photo.path || itemPhoto.url === photo.url))
-    : null
-  return {
-    photoUrl: photo.url,
-    date: photo.takenDate,
-    title: memory?.content.slice(0, 28) || photo.caption || photo.albumName || '新加入的共同照片',
-    description: memory?.content || photo.caption || `收录在「${photo.albumName || '我们的相册'}」中`,
-    location: memory?.location || '',
-    source: photo.source === 'memory' ? '时光记录' : '相册照片',
-  }
-})
-const homeHeroPhoto = computed(() => selectedCoverUrl.value || latestMemory.value?.photos[0]?.url || allPhotos.value[0]?.url || '')
-const homeHeroPath = computed(() => selectedCoverPath.value || latestMemory.value?.photos[0]?.path || allPhotos.value[0]?.path || '')
-const homeHeroLocation = computed(() => latestMemory.value?.photos[0]
-  ? latestMemory.value.location
-  : allPhotos.value[0]?.albumName || '')
-const homePlans = computed(() => togetherItems.value.slice(0, 3))
-const completedPlanCount = computed(() => togetherItems.value.filter(item => item.completed).length)
-const selfMember = computed(() => members.value.find(member => member.id === profile.value?.id) || members.value[0])
-const partnerMember = computed(() => members.value.find(member => member.id !== profile.value?.id))
-const coupleNames = computed(() => partnerMember.value ? `${selfMember.value?.displayName || profile.value?.displayName} 与 ${partnerMember.value.displayName}` : selfMember.value?.displayName || profile.value?.displayName || '我们的空间')
-const todayLabel = computed(() => new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date()))
-const relationshipLabel = computed(() => new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(`${relationshipStart.value}T12:00:00`)))
-const nextOccurrence = computed(() => nextAnniversary.value ? occurrence(nextAnniversary.value) : null)
-
-watch(homeHeroPhoto, value => {
-  if (!import.meta.client || !value) return
-  const image = new window.Image()
-  image.onload = () => {
-    const ratio = image.naturalWidth / image.naturalHeight
-    heroPhotoShape.value = ratio >= 1.4 ? 'wide' : ratio <= .82 ? 'portrait' : 'square'
-    displayedHeroPhoto.value = value
-  }
-  image.src = value
-}, { immediate: true })
 
 async function loadHomeData() {
   // Keep network stalls from blocking the shell. Each source can finish and
@@ -157,7 +109,6 @@ async function loadHomeData() {
     subscribeMembers(),
     subscribeAlbumPhotos(),
     syncAnniversaryReminders(anniversaries.value),
-    loadCoupleCover(),
     connectPresence(),
     loadMessages(),
     subscribeMessages(),
@@ -245,35 +196,6 @@ async function reconnectSpaceServices() {
   ])
 }
 
-async function loadCoupleCover() {
-  const { $supabase } = useNuxtApp()
-  if (!$supabase || !profile.value?.coupleId) {
-    selectedCoverUrl.value = localStorage.getItem('couple-space-cover-url') || ''
-    return
-  }
-  const { data } = await $supabase.from('couples').select('cover_path').eq('id', profile.value.coupleId).maybeSingle()
-  selectedCoverPath.value = data?.cover_path || ''
-  if (!selectedCoverPath.value) { selectedCoverUrl.value = ''; return }
-  const matched = allPhotos.value.find(photo => photo.path === selectedCoverPath.value)
-  const coverPath = matched?.mediaType === 'video' ? (matched.videoPosterPath || matched.path) : selectedCoverPath.value
-  const coverBucket = (matched?.source === 'memory' || (!matched && !selectedCoverPath.value.includes('/album-media/') && !selectedCoverPath.value.startsWith('album-media/'))) ? 'memory-photos' : 'album-media'
-  selectedCoverUrl.value = await createMediaSignedUrl($supabase, coverPath, coverBucket, { width: 1400, height: 900, resize: 'cover', quality: 84 })
-}
-
-async function chooseCover(photo: { path: string; url: string; source?: 'album' | 'memory'; mediaType?: 'image' | 'video'; videoPosterPath?: string }) {
-  const { $supabase } = useNuxtApp()
-  selectedCoverPath.value = photo.path
-  const coverPath = photo.mediaType === 'video' ? (photo.videoPosterPath || photo.path) : photo.path
-  selectedCoverUrl.value = $supabase
-    ? await createMediaSignedUrl($supabase, coverPath, photo.source === 'memory' ? 'memory-photos' : 'album-media', { width: 1400, height: 900, resize: 'cover', quality: 84 })
-    : photo.url
-  if ($supabase && profile.value?.coupleId && photo.path) {
-    const { error } = await $supabase.from('couples').update({ cover_path: photo.path }).eq('id', profile.value.coupleId)
-    if (error) throw error
-  } else localStorage.setItem('couple-space-cover-url', photo.url)
-  coverPickerVisible.value = false
-}
-
 onMounted(async () => {
   syncOnlineState()
   window.addEventListener('online', syncOnlineState)
@@ -321,12 +243,7 @@ watch(() => messages.value.length, (length, previousLength) => {
   if (messageToastTimer) clearTimeout(messageToastTimer)
   messageToastTimer = setTimeout(() => { messageToast.value = null }, 5000)
 })
-const latestSharedMedia = computed(() => allPhotos.value.filter(photo => photo.url).slice(0, 10))
-const firstRunHasMedia = computed(() => latestSharedMedia.value.length > 0)
-function revealHomeVideo(event:Event){const video=event.currentTarget as HTMLVideoElement;if(Number.isFinite(video.duration)&&video.duration>0&&video.currentTime===0)video.currentTime=Math.min(.15,video.duration/2)}
-function homeVideoReady(event: Event) { revealVideoFrame(event) }
-async function refreshHomeMedia(event: Event, path: string, bucket?: string, mediaType: 'image' | 'video' = 'image') { await refreshMediaElement(event, $supabase, path, bucket, mediaType === 'image' ? { width: 640, height: 640, resize: 'contain', quality: 68 } : undefined) }
-async function refreshHero(event: Event) { await refreshMediaElement(event, $supabase, homeHeroPath.value, homeHeroPath.value.includes('/album-media/') ? 'album-media' : 'memory-photos', { width: 1400, height: 900, resize: 'cover', quality: 84 }) }
+const firstRunHasMedia = computed(() => allPhotos.value.length > 0)
 onBeforeUnmount(async () => { pageMotionContext?.revert(); if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
 
 async function openChat() {
@@ -506,109 +423,7 @@ watch(activeNav, () => {
 
     <Transition mode="out-in" @enter="animatePageEnter" @leave="animatePageLeave">
       <div ref="pageStageRef" :key="activeNav" class="page-stage">
-    <main v-if="activeNav === '首页'" class="main-content">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">{{ todayLabel }}</p>
-          <h1>晚上好，{{ coupleNames }}</h1>
-        </div>
-        <div class="topbar-actions"><button class="message-button glass-panel notification-trigger" type="button" aria-label="打开通知中心" title="通知中心" @click="notificationVisible = true; void refreshAiWorks()"><Bell :size="20"/><strong v-if="notificationUnreadCount" class="notification-badge">{{ notificationUnreadCount > 99 ? '99+' : notificationUnreadCount }}</strong></button><button class="message-button glass-panel easter-trigger" type="button" aria-label="打开秘密彩蛋" title="只属于你们的秘密" @click="easterEggVisible=true"><Heart :size="19" fill="currentColor"/></button><button class="message-button glass-panel" type="button" aria-label="查看空间状态" title="空间状态" @click="spaceStatusVisible=true"><Activity :size="20"/></button><button class="message-button glass-panel" type="button" aria-label="打开设置" title="设置" @click="accountVisible=true"><Settings :size="21"/></button></div>
-      </header>
-
-      <section class="hero-section" :class="[{ 'has-cover': displayedHeroPhoto }, `photo-${heroPhotoShape}`]" :style="displayedHeroPhoto ? { '--hero-image': `url('${displayedHeroPhoto}')` } : undefined" aria-labelledby="love-days-title">
-        <div class="hero-copy">
-          <div class="soft-label"><Heart :size="14" fill="currentColor" /> 我们在一起</div>
-          <LoveDuration id="love-days-title" :start="relationshipStart" />
-          <p>从 {{ relationshipLabel }} 开始，每一天都有了共同的名字。</p>
-          <button class="primary-button" type="button" @click="openTimelineComposer">
-            <Plus :size="18" /> 记录此刻
-          </button>
-          <div class="story-entry-grid">
-            <button class="story-entry-button" type="button" @click="openRomanceExperience('story')">
-              <Heart :size="16" fill="currentColor" /> <span>打开我们的故事</span>
-            </button>
-            <button class="story-entry-button" type="button" @click="openFutureMailbox">
-              <Mail :size="16" /> <span>写给未来的信</span>
-            </button>
-            <button class="story-entry-button" type="button" @click="voiceCapsuleVisible = true">
-              <Volume2 :size="16" /> <span>声音胶囊</span>
-            </button>
-          </div>
-        </div>
-        <div class="hero-photo" :class="{ empty: !displayedHeroPhoto }" :style="displayedHeroPhoto ? { '--photo-image': `url('${displayedHeroPhoto}')` } : undefined" role="img" :aria-label="displayedHeroPhoto ? '最新的共同照片' : '等待添加共同照片'">
-          <img v-if="displayedHeroPhoto" :src="displayedHeroPhoto" alt="情侣空间封面" @error="refreshHero">
-          <button class="cover-button glass-panel" type="button" @click="coverPickerVisible = true"><Camera :size="15" /> 选择封面</button>
-          <div class="photo-caption glass-panel">
-            <MapPin v-if="homeHeroLocation" :size="15" /> {{ homeHeroLocation || '第一张共同照片，等你们来记录' }}
-          </div>
-        </div>
-      </section>
-
-      <LoveQuoteCarousel />
-      <PetStreakWidget />
-
-      <section class="dashboard-grid">
-        <LoveLetterCard />
-        <article class="anniversary-panel panel">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">下一次见面的期待</p>
-              <h3>下一个特别的日子</h3>
-            </div>
-            <button class="icon-button" type="button" aria-label="查看所有纪念日" title="查看全部" @click="activeNav = '纪念日'">
-              <ChevronRight :size="20" />
-            </button>
-          </div>
-          <div class="date-display">
-            <div class="calendar-page">
-              <span>{{ nextOccurrence ? String(nextOccurrence.getMonth() + 1).padStart(2, '0') + '月' : '--' }}</span>
-              <strong>{{ nextOccurrence ? String(nextOccurrence.getDate()).padStart(2, '0') : '--' }}</strong>
-            </div>
-            <div>
-              <h4>{{ nextAnniversary?.title || '添加第一个纪念日' }}</h4>
-              <p>{{ nextAnniversary ? `还有 ${daysUntil(nextAnniversary)} 天` : '让重要日子不再错过' }}</p>
-            </div>
-          </div>
-          <div class="progress-track"><span /></div>
-        </article>
-
-        <article class="plans-panel panel">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">一起完成的小事</p>
-              <h3>今天一起完成</h3>
-            </div>
-            <span class="plan-count">{{ completedPlanCount }}/{{ togetherItems.length }}</span>
-          </div>
-          <div class="plan-list">
-            <button
-              v-for="plan in homePlans"
-              :key="plan.id"
-              class="plan-item"
-              :class="{ done: plan.completed }"
-              type="button"
-              @click="toggleItem(plan)"
-            >
-              <span class="check-box"><Check v-if="plan.completed" :size="14" /></span>
-              <span><strong>{{ plan.title }}</strong><small>{{ plan.plannedDate || (plan.note || '共同计划') }}</small></span>
-            </button>
-            <button v-if="!homePlans.length" class="empty-plan" type="button" @click="activeNav = '清单'"><Plus :size="16" /> 添加第一项共同计划</button>
-          </div>
-        </article>
-
-        <article class="memory-panel panel">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">刚刚留下的回忆</p>
-              <h3>最近的共同回忆</h3>
-            </div>
-            <button class="text-button" type="button" @click="activeNav = '时光'">查看时光</button>
-          </div>
-          <div v-if="latestSharedMedia.length" class="recent-media-grid"><button v-for="(media, mediaIndex) in latestSharedMedia" :key="media.id" type="button" @click="activeNav='相册'"><img :src="media.url" :alt="media.mediaType==='video' ? '最近共同视频封面' : '最近共同回忆'" :loading="mediaIndex < 4 ? 'eager' : 'lazy'" :fetchpriority="mediaIndex < 2 ? 'high' : 'low'" decoding="async" @error="refreshHomeMedia($event, media.path, media.source === 'memory' ? 'memory-photos' : 'album-media')"><Film v-if="media.mediaType==='video'" class="recent-video-mark" :size="17"/><span>{{media.takenDate}} · {{media.uploaderName}}</span></button></div>
-          <button v-else class="empty-memory" type="button" @click="activeNav = '相册'"><Plus :size="19" /><span><strong>还没有共同照片</strong><small>从相册或时光上传第一张照片</small></span></button>
-        </article>
-      </section>
-    </main>
+    <HomePage v-if="activeNav === '首页'" @timeline="openTimelineComposer" />
     <main v-else-if="activeNav === '时光'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyTimelineView ref="timelineRef" @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>时光轴暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '相册'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyAlbumView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>相册暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '清单'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyTogetherListView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>清单暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
@@ -616,6 +431,7 @@ watch(activeNav, () => {
     <main v-else-if="activeNav === '悄悄话'" class="main-content chat-main"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyChatPanel mode="page" @close="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>悄悄话暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
      <main v-else-if="activeNav === '心动AI'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyHeartAiView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>心动 AI 暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
      <main v-else-if="activeNav === '宠物小屋'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyPetHouseView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>宠物小屋暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
+     <main v-else-if="activeNav === '日历'" class="main-content"><SharedCalendarView /></main>
     <main v-else class="main-content" />
       </div>
     </Transition>
@@ -644,14 +460,6 @@ watch(activeNav, () => {
     <Transition name="layer"><FutureMailboxPanel v-if="futureMailboxVisible" @close="futureMailboxVisible = false" /></Transition>
     <Transition name="layer"><VoiceCapsulePanel v-if="voiceCapsuleVisible" @close="voiceCapsuleVisible = false" /></Transition>
     <Transition name="layer"><EasterEggPanel v-if="easterEggVisible" @close="easterEggVisible = false" /></Transition>
-    <div v-if="coverPickerVisible" class="cover-picker-overlay" @click.self="coverPickerVisible = false">
-      <section class="cover-picker">
-        <header><div><p class="eyebrow">首页封面</p><h2>选择首页封面</h2></div><button type="button" aria-label="关闭" @click="coverPickerVisible = false"><X :size="20" /></button></header>
-        <p>从你们已经上传的照片中选择一张，双方会看到相同封面。</p>
-        <div v-if="allPhotos.length" class="cover-photo-grid"><button v-for="photo in allPhotos" :key="photo.id" type="button" :class="{ selected: photo.path === selectedCoverPath }" @click="chooseCover(photo)"><img :src="photo.url" alt="可选封面"><span>{{ photo.albumName }}</span></button></div>
-        <div v-else class="cover-empty">相册中还没有照片，请先上传一张。</div>
-      </section>
-    </div>
   </div>
 </template>
 
@@ -858,7 +666,7 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
   .hero-section { grid-template-columns: 1fr 1fr; }
   .hero-copy { padding: 36px 28px; }
   .hero-copy h2 strong { font-size: 56px; }
-  .mobile-nav { position: fixed; z-index: 30; right: 14px; bottom: max(12px, env(safe-area-inset-bottom)); left: 14px; display: grid; grid-template-columns: repeat(8, 1fr); align-items: center; height: 72px; padding: 8px; border-radius: 24px; }
+  .mobile-nav { position: fixed; z-index: 30; right: 14px; bottom: max(12px, env(safe-area-inset-bottom)); left: 14px; display: grid; grid-template-columns: repeat(9, 1fr); align-items: center; height: 72px; padding: 8px; border-radius: 24px; }
   .mobile-nav-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; height: 52px; padding: 4px 2px; border: 0; border-radius: 15px; background: transparent; color: #9991a2; }
   .mobile-nav-button span { font-size: 9px; font-weight: 700; }
   .mobile-nav-button.active { color: var(--lavender-deep); background: var(--lavender-soft); }
@@ -981,19 +789,8 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .app-shell :is(.memory-editor,.album-modal,.item-editor,.ann-editor) :is(.save-button,.confirm,.save) { border-radius: 9px!important; background: #53405a!important; }
 @media(max-width:650px){.app-shell{background:#f7f5f8}.glass-panel{backdrop-filter:none;-webkit-backdrop-filter:none}.hero-section{min-height:0;border-radius:15px}.hero-photo{min-height:178px;margin-left:0}.hero-copy{padding:24px 19px 26px}.panel{border-radius:14px}.mobile-nav{border-radius:14px;box-shadow:0 6px 20px rgba(48,37,54,.1)}.mobile-nav-button{border-radius:9px}.mobile-nav-button.active{background:#eee7f0;color:#583d60}}
 </style>
-<style>
-.story-entry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;width:100%}.story-entry-button{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:38px;padding:0 8px;border:1px solid rgba(255,255,255,.62);border-radius:13px;background:rgba(255,255,255,.32);color:#8d4b91;font-size:10px;font-weight:850;text-align:center;cursor:pointer;transition:transform .2s ease,color .2s ease,background .2s ease}.story-entry-button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.story-entry-button:hover{color:#713c86;background:rgba(255,255,255,.64);transform:translateY(-2px)}
-@media(max-width:650px){.story-entry-grid{grid-template-columns:1fr;gap:7px;margin-top:10px}.story-entry-button{justify-content:flex-start;padding:0 12px;font-size:10px}}
-</style>
-<style>
-/* Final home-cover rules: keep the real photo visible for square and portrait uploads. */
-.hero-photo>img{object-position:center!important;transition:opacity .28s ease,transform .28s ease!important}
-.hero-section.photo-square .hero-photo>img{inset:7%!important;width:86%!important;height:86%!important;object-fit:contain!important;object-position:center!important}
-.hero-section.photo-portrait .hero-photo>img{inset:5% 16%!important;width:68%!important;height:90%!important;object-fit:contain!important;object-position:center!important}
-.hero-section.photo-square .hero-photo,.hero-section.photo-portrait .hero-photo{background:linear-gradient(135deg,rgba(219,191,243,.58),rgba(255,210,231,.56),rgba(190,221,245,.48))!important}
-.hero-photo.empty::before{display:none!important}.hero-photo.empty::after{background:linear-gradient(135deg,rgba(245,228,252,.25),rgba(255,220,237,.2))!important}
-@media(max-width:650px){.hero-section.photo-square .hero-photo>img{inset:6%!important;width:88%!important;height:88%!important}.hero-section.photo-portrait .hero-photo>img{inset:5% 22%!important;width:56%!important;height:90%!important}}
-</style>
+
+
 <style>
 /* Chat is a fixed workspace: only the message list should scroll. */
 .chat-main{height:calc(100vh - 52px);min-height:0!important;overflow:hidden!important;padding-bottom:0!important}
@@ -1014,20 +811,7 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 <style>
 .live-status-capsule{position:fixed;z-index:80;top:20px;left:50%;display:flex;align-items:center;gap:9px;min-width:245px;max-width:min(360px,calc(100vw - 28px));padding:9px 10px;border:1px solid rgba(255,255,255,.84);border-radius:18px;background:linear-gradient(135deg,rgba(255,247,255,.9),rgba(250,226,247,.84));box-shadow:0 14px 35px rgba(81,44,93,.18);backdrop-filter:blur(18px) saturate(130%);transform:translateX(-50%)}.live-status-capsule.broadcasting{background:linear-gradient(135deg,rgba(236,218,255,.94),rgba(255,220,237,.9))}.live-status-icon{display:grid;place-items:center;width:29px;height:29px;border-radius:10px;background:rgba(255,255,255,.7);color:#a34e94}.live-status-copy{min-width:0;flex:1}.live-status-copy strong,.live-status-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.live-status-copy strong{color:#603769;font-size:11px}.live-status-copy small{margin-top:2px;color:#927b98;font-size:9px}.live-status-capsule>button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:10px;background:rgba(255,255,255,.68);color:#7c4b88;cursor:pointer}.live-status-error{position:fixed;z-index:80;top:75px;left:50%;max-width:min(360px,calc(100vw - 28px));margin:0;transform:translateX(-50%);color:#b64f76;font-size:10px;text-align:center}.live-status-capsule~.live-status-error{margin-top:0}@media(max-width:650px){.live-status-capsule{top:max(10px,env(safe-area-inset-top));min-width:0;width:calc(100vw - 28px);border-radius:16px}.live-status-error{top:68px}}
 </style>
-<style>
-/* Final overflow guard for portrait and panoramic uploads. */
-.hero-section{height:clamp(420px,58vw,560px)!important;min-height:0!important;overflow:hidden!important;contain:paint}
-.hero-photo{height:100%!important;min-height:0!important;max-height:100%!important;overflow:hidden!important}
-.hero-photo>img{max-width:100%!important;max-height:100%!important;object-fit:cover!important}
-@media(max-width:650px){.hero-section{height:auto!important;min-height:560px!important}.hero-photo{height:190px!important;min-height:190px!important}.hero-copy{min-height:370px!important}}
-</style>
-<style>
-/* Guard the home hero against very tall uploads. The image stays inside a stable stage. */
-.hero-section{height:clamp(420px,58vw,560px);min-height:0;overflow:hidden;contain:paint}
-.hero-photo{position:relative;min-width:0;height:100%;min-height:0;overflow:hidden}
-.hero-photo>img{max-width:100%;max-height:100%;object-fit:cover}
-@media(max-width:650px){.hero-section{height:auto;min-height:560px!important}.hero-copy{min-height:370px}.hero-photo{height:190px;min-height:190px!important}}
-</style>
+
 <style>
 /* Romantic luxe layer: jewel-color light, layered glass, and photo-led depth. */
 :root { --luxe-plum:#59255f; --luxe-orchid:#9a58d5; --luxe-rose:#ec6fa7; --luxe-sky:#79b9ed; --luxe-pearl:rgba(255,250,255,.76); }

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Love小家 · CoupleSpace — 只属于两个人的私密空间</title>
+<meta name="description" content="一个真正属于两个人的私密生活空间。把照片、悄悄话、纪念日、AI灵感和共同宠物收藏在一起。开源、免费、跨平台。">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/desktop-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Love小家 · CoupleSpace — 只属于两个人的私密空间">
+<meta property="og:description" content="把照片、悄悄话、纪念日、AI灵感和共同宠物收藏在一起。开源、免费、跨平台。">
+<meta property="og:url" content="https://love-landing-8s9.pages.dev">
+<meta property="og:image" content="https://love-landing-8s9.pages.dev/desktop-icon.png">
+<meta property="og:site_name" content="Love小家">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Love小家 · CoupleSpace">
+<meta name="twitter:description" content="只属于两个人的私密生活空间。开源、免费、跨平台。">
+<meta name="twitter:image" content="https://love-landing-8s9.pages.dev/desktop-icon.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Love小家","description":"只属于两个人的私密生活空间","applicationCategory":"LifestyleApplication","operatingSystem":"Web, Android, Windows","offers":{"@type":"Offer","price":"0","priceCurrency":"CNY"},"license":"https://opensource.org/licenses/MIT"}</script>
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" as="style">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff;--bg2:#f5f5f7;--bg3:#fbfbfd;
+  --bd:rgba(0,0,0,.06);--bd2:rgba(0,0,0,.1);
+  --t:#1d1d1f;--t2:#6e6e73;--t3:#86868b;
+  --v:#7c3aed;--pk:#ec4899;--bl:#0071e3;--gn:#34c759;--am:#ff9f0a;
+  --card-bg:#fbfbfd;--nav-bg:rgba(255,255,255,.72);
+  --f:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter','Noto Sans SC','Helvetica Neue',sans-serif;
+}
+[data-theme="dark"]{
+  --bg:#000;--bg2:#111;--bg3:#1a1a1a;
+  --bd:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.12);
+  --t:#f5f5f7;--t2:#a1a1a6;--t3:#6e6e73;
+  --card-bg:#1a1a1a;--nav-bg:rgba(0,0,0,.72);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:var(--f);color:var(--t);background:var(--bg);line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+a{color:inherit;text-decoration:none}button{font:inherit;border:0;cursor:pointer;background:none}
+::selection{background:rgba(0,113,227,.12)}
+.bg{position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--bg);transition:background .3s}
+.orb{position:fixed;border-radius:50%;filter:blur(140px);pointer-events:none;z-index:-1;opacity:.08}
+.orb1{width:900px;height:900px;top:-25%;right:-15%;background:radial-gradient(circle,#c4b5fd,transparent 70%);animation:orbF 30s ease-in-out infinite}
+.orb2{width:700px;height:700px;bottom:-20%;left:-10%;background:radial-gradient(circle,#fbcfe8,transparent 70%);animation:orbF 25s ease-in-out infinite reverse;animation-delay:-8s}
+.orb3{width:500px;height:500px;top:40%;left:55%;background:radial-gradient(circle,#bfdbfe,transparent 70%);animation:orbF 28s ease-in-out infinite;animation-delay:-14s;opacity:.05}
+@keyframes orbF{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-40px) scale(1.06)}66%{transform:translate(-20px,25px) scale(.95)}}
+.rv{opacity:1;transform:none}
+.js-ready .rv{opacity:0;transform:translateY(24px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+.js-ready .rv.v{opacity:1;transform:none}
+.d1{transition-delay:.08s}.d2{transition-delay:.16s}.d3{transition-delay:.24s}.d4{transition-delay:.32s}.d5{transition-delay:.4s}.d6{transition-delay:.48s}
+.W{width:min(1080px,88%);margin:0 auto}
+.gt{background:linear-gradient(135deg,#7c3aed,#ec4899 50%,#f97316);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gt2{background:linear-gradient(135deg,#0071e3,#34c759);-webkit-background-clip:text;background-clip:text;color:transparent}
+.nav{position:fixed;z-index:100;top:0;left:0;right:0;height:48px;transition:all .3s}
+.nav.sc{background:var(--nav-bg);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:.5px solid var(--bd)}
+.ni{display:flex;align-items:center;justify-content:space-between;height:48px;max-width:1080px;margin:0 auto;padding:0 22px}
+.logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:-.01em}.logo svg{width:28px;height:28px}
+.nl{display:flex;align-items:center;gap:20px}
+.nl a{font-size:12px;font-weight:500;color:var(--t2);transition:color .2s;position:relative}
+.nl a:hover,.nl a.on{color:var(--t)}
+.nl a.on::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:14px;height:2px;border-radius:1px;background:var(--bl)}
+.nb{padding:6px 16px!important;border-radius:99px!important;background:var(--bl)!important;color:#fff!important;font-weight:600!important;font-size:12px!important;transition:all .2s!important}
+.nb:hover{background:#0077ed!important;transform:scale(1.02)}
+.theme-toggle{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:14px;transition:all .2s;background:var(--bg2)}
+.theme-toggle:hover{transform:scale(1.1)}
+.mb{display:none;width:36px;height:36px;border-radius:8px;place-items:center}
+.mb span{display:block;width:14px;height:1.5px;background:var(--t);position:relative}
+.mb span::before,.mb span::after{content:'';position:absolute;left:0;width:100%;height:100%;background:inherit}
+.mb span::before{top:-4px}.mb span::after{top:4px}
+.dr{position:fixed;z-index:200;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .3s}
+.dr.open{opacity:1;pointer-events:auto}
+.dp{position:absolute;top:0;right:0;width:min(300px,80vw);height:100%;background:var(--bg);backdrop-filter:blur(30px);padding:20px;transform:translateX(100%);transition:transform .35s cubic-bezier(.16,1,.3,1)}
+.dr.open .dp{transform:none}
+.dc{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:var(--bg2);margin-left:auto;margin-bottom:20px;font-size:14px;color:var(--t2)}
+.dl{display:flex;flex-direction:column;gap:2px}
+.dl a{padding:12px 14px;border-radius:12px;font-size:14px;font-weight:500;color:var(--t2);transition:background .2s}
+.dl a:hover{background:var(--bg2);color:var(--t)}
+.dcta{display:block;text-align:center;margin-top:10px;padding:12px;border-radius:12px;background:var(--bl);color:#fff;font-weight:600;font-size:13px}
+section{padding:100px 0}.alt{background:var(--bg2);transition:background .3s}
+.hero{min-height:100vh;display:flex;align-items:center;padding:120px 0 80px;text-align:center;flex-direction:column;justify-content:center;position:relative}
+.hero h1{font-size:clamp(48px,7vw,80px);font-weight:800;line-height:1.05;letter-spacing:-.04em;margin-bottom:20px}
+.hero .sub{font-size:clamp(17px,2vw,22px);color:var(--t2);font-weight:400;max-width:600px;margin:0 auto 36px;line-height:1.5}
+.hact{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.b1{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;border-radius:99px;background:var(--bl);color:#fff;font-size:15px;font-weight:600;transition:all .3s;box-shadow:0 4px 16px rgba(0,113,227,.2)}
+.b1:hover{transform:scale(1.02);box-shadow:0 8px 28px rgba(0,113,227,.25)}
+.b2{display:inline-flex;align-items:center;gap:8px;padding:14px 24px;border-radius:99px;background:transparent;color:var(--bl);font-size:15px;font-weight:600;border:1px solid var(--bd2);transition:all .3s}
+.b2:hover{background:rgba(0,113,227,.04);transform:scale(1.02)}.b2 svg{width:18px;height:18px}
+.scroll-hint{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--t3);font-size:11px;animation:bounce 2s ease-in-out infinite}
+.scroll-hint .arrow{width:20px;height:20px;border-right:2px solid var(--t3);border-bottom:2px solid var(--t3);transform:rotate(45deg)}
+@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(8px)}}
+.phone-wrap{margin-top:56px;position:relative;display:flex;justify-content:center}
+.phone-glow{position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.06),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%)}
+.phone{position:relative;width:260px;height:530px;border-radius:44px;background:linear-gradient(170deg,#f8f8fa,#e8e8ed);padding:10px;box-shadow:0 0 0 1px rgba(0,0,0,.04),0 20px 60px rgba(0,0,0,.08),inset 0 1px 0 rgba(255,255,255,.8)}
+[data-theme="dark"] .phone{background:linear-gradient(170deg,#2a2a2e,#1a1a1e);box-shadow:0 0 0 1px rgba(255,255,255,.06),0 20px 60px rgba(0,0,0,.4)}
+.pscreen{width:100%;height:100%;border-radius:36px;overflow:hidden;background:linear-gradient(155deg,#faf5ff,#fdf2f8 50%,#eff6ff);display:flex;flex-direction:column;position:relative}
+[data-theme="dark"] .pscreen{background:linear-gradient(155deg,#1a1025,#251530 50%,#152030)}
+.pscreen::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:100px;height:26px;background:var(--bg);border-radius:0 0 16px 16px;z-index:5}
+.ptop{display:flex;justify-content:space-between;padding:8px 18px;font-size:10px;font-weight:600;color:var(--t3)}
+.phdr{padding:6px 18px 4px}.phdr .g{font-size:9px;color:var(--t3)}.phdr .t{font-size:15px;font-weight:800;color:var(--t);margin-top:1px}
+.pcards{flex:1;padding:4px 12px;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.pcard{border-radius:16px;padding:12px;background:rgba(255,255,255,.7);backdrop-filter:blur(8px);border:1px solid rgba(0,0,0,.04)}
+[data-theme="dark"] .pcard{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.06)}
+.pcard.hl{background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(236,72,152,.04));border-color:rgba(124,58,237,.08)}
+.pcard .lb{font-size:7px;color:var(--t3);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pcard .vl{font-size:22px;font-weight:900;margin:2px 0;background:linear-gradient(135deg,var(--v),var(--pk));-webkit-background-clip:text;background-clip:text;color:transparent}
+.pcard .sb{font-size:7.5px;color:var(--t3)}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px}.pgrid i{height:28px;border-radius:8px;display:block}
+.pnav{display:flex;justify-content:space-around;padding:8px 8px 14px;background:rgba(255,255,255,.5);border-top:.5px solid rgba(0,0,0,.04)}
+[data-theme="dark"] .pnav{background:rgba(0,0,0,.3);border-color:rgba(255,255,255,.04)}
+.pnav-i{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:6px;color:var(--t3);font-weight:600}.pnv-i.on{color:var(--v)}
+.fl{position:absolute;padding:10px 14px;border-radius:14px;background:var(--card-bg);backdrop-filter:blur(16px);border:1px solid var(--bd);box-shadow:0 8px 32px rgba(0,0,0,.06);font-size:11px;font-weight:600;white-space:nowrap;color:var(--t);animation:fy 6s ease-in-out infinite alternate}
+.fl.a{top:8%;left:-50px}.fl.b{top:48%;right:-60px;animation-delay:2s}.fl.c{bottom:10%;left:-40px;animation-delay:4s}
+.fi{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;margin-right:6px;font-size:12px;vertical-align:middle}
+.fi.pk{background:rgba(236,72,152,.08)}.fi.pp{background:rgba(124,58,237,.08)}.fi.bl{background:rgba(0,113,227,.08)}
+@keyframes fy{to{transform:translateY(-10px)}}
+.sh{text-align:center;margin-bottom:56px}
+.sh .tag{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);font-size:11px;font-weight:700;color:var(--v);letter-spacing:.04em;text-transform:uppercase;margin-bottom:16px}
+.sh h2{font-size:clamp(32px,4.5vw,56px);font-weight:800;line-height:1.08;letter-spacing:-.035em;margin-bottom:14px}
+.sh p{font-size:clamp(15px,1.6vw,19px);color:var(--t2);max-width:560px;margin:0 auto;line-height:1.6}
+.gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.gal-card{border-radius:20px;overflow:hidden;aspect-ratio:9/16;position:relative;background:var(--card-bg);border:1px solid var(--bd);transition:all .3s}
+.gal-card:hover{transform:translateY(-6px);box-shadow:0 16px 48px rgba(0,0,0,.08)}
+.gal-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px}
+.gal-icon{font-size:40px}.gal-label{font-size:13px;font-weight:700;color:var(--t)}.gal-desc{font-size:11px;color:var(--t2);text-align:center}
+.cmp-wrap{overflow-x:auto;border-radius:16px;border:1px solid var(--bd)}
+.cmp-table{width:100%;border-collapse:collapse;font-size:13px;background:var(--card-bg)}
+.cmp-table th,.cmp-table td{padding:14px 18px;text-align:center;border-bottom:1px solid var(--bd)}
+.cmp-table th{font-weight:700;color:var(--t);background:var(--bg2)}
+.cmp-table td:first-child{text-align:left;font-weight:500;color:var(--t)}
+.cmp-table .hl{background:rgba(124,58,237,.04);font-weight:700;color:var(--v)}
+.cmp-table tbody tr:hover{background:rgba(0,0,0,.02)}
+.cmp-table tbody tr:last-child td{border-bottom:none}
+.cmp-note{text-align:center;margin-top:16px;font-size:12px;color:var(--t3)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;text-align:center}
+.stat .num{font-size:clamp(36px,4vw,56px);font-weight:900;letter-spacing:-.03em}
+.stat .label{font-size:13px;color:var(--t2);margin-top:4px}
+.bento{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.bento .span2{grid-column:span 2}
+.card{position:relative;padding:28px 24px;border-radius:20px;background:var(--card-bg);border:1px solid var(--bd);transition:all .3s;overflow:hidden}
+.card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.06);border-color:var(--bd2)}
+.card .ci{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;font-size:20px;margin-bottom:16px;transition:transform .3s}
+.card:hover .ci{transform:scale(1.1)}
+.card h3{font-size:15px;font-weight:700;margin-bottom:6px}.card p{font-size:12.5px;color:var(--t2);line-height:1.7}
+.show-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+.show-visual{position:relative;border-radius:28px;overflow:hidden;background:linear-gradient(155deg,#faf5ff,#fdf2f8 50%,#eff6ff);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;border:1px solid var(--bd)}
+[data-theme="dark"] .show-visual{background:linear-gradient(155deg,#1a1025,#251530 50%,#152030)}
+.show-inner{width:78%;height:78%;border-radius:20px;background:rgba(255,255,255,.7);backdrop-filter:blur(12px);border:1px solid rgba(0,0,0,.04);display:flex;flex-direction:column;padding:22px;gap:10px}
+[data-theme="dark"] .show-inner{background:rgba(0,0,0,.3);border-color:rgba(255,255,255,.04)}
+.sr{display:flex;gap:10px;align-items:flex-start}.sr.sf{justify-content:flex-end}
+.sva{width:30px;height:30px;border-radius:50%;flex-shrink:0}
+.sva.a{background:linear-gradient(135deg,#7c3aed,#a78bfa)}.sva.b{background:linear-gradient(135deg,#ec4899,#f472b6)}
+.svb{padding:10px 14px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.8);border:1px solid rgba(0,0,0,.04);font-size:11px;color:var(--t2);max-width:180px;line-height:1.5}
+[data-theme="dark"] .svb{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.06)}
+.svb.sf{border-radius:14px 14px 4px 14px;background:linear-gradient(135deg,rgba(124,58,237,.06),rgba(236,72,152,.04));border-color:rgba(124,58,237,.08)}
+.check-list{display:flex;flex-direction:column;gap:16px}
+.check-item{display:flex;align-items:flex-start;gap:12px;font-size:14px;color:var(--t2);line-height:1.6}
+.check-icon{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--gn);color:#fff;flex-shrink:0;font-size:12px;font-weight:700;margin-top:2px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.step{text-align:center;padding:32px 20px}
+.step .sn{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;margin:0 auto 20px;background:var(--bg2);border:1.5px solid var(--bd2);font-size:18px;font-weight:800;color:var(--bl)}
+.step h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.step p{font-size:13px;color:var(--t2);line-height:1.7;max-width:260px;margin:0 auto}
+.dl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.dl-card{padding:36px 24px;border-radius:20px;background:var(--card-bg);border:1px solid var(--bd);text-align:center;transition:all .3s}
+.dl-card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.06)}
+.dl-card .icon{font-size:36px;margin-bottom:16px}
+.dl-card h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.dl-card p{font-size:12.5px;color:var(--t2);line-height:1.7;margin-bottom:20px}
+.dl-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border-radius:99px;background:var(--bl);color:#fff;font-size:13px;font-weight:600;transition:all .2s}
+.dl-btn:hover{background:#0077ed;transform:scale(1.02)}
+.dl-btn.gh{background:var(--t);color:var(--bg)}.dl-btn.gh:hover{opacity:.85}
+.plats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.plat{padding:36px 24px;border-radius:20px;background:var(--card-bg);border:1px solid var(--bd);text-align:center;transition:all .3s}
+.plat:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.06)}
+.plat .pi{display:grid;place-items:center;width:64px;height:64px;border-radius:18px;margin:0 auto 20px;font-size:28px}
+.plat h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.plat p{font-size:12.5px;color:var(--t2);line-height:1.7;margin-bottom:20px}
+.plat .badge{display:inline-flex;padding:6px 14px;border-radius:99px;background:var(--bg2);font-size:11px;font-weight:700;color:var(--t2)}
+.tech-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.tech-item{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:99px;background:var(--card-bg);border:1px solid var(--bd);font-size:13px;font-weight:600;color:var(--t);transition:all .3s}
+.tech-item:hover{border-color:var(--bd2);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.04)}
+.tech-item .dot{width:8px;height:8px;border-radius:50%}
+.priv-box{position:relative;padding:48px;border-radius:28px;background:linear-gradient(155deg,rgba(124,58,237,.04),rgba(236,72,152,.02));border:1px solid rgba(124,58,237,.08);overflow:hidden}
+.priv-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;position:relative;z-index:1}
+.priv-title{font-size:clamp(24px,3vw,36px);font-weight:800;letter-spacing:-.03em;margin-bottom:14px}
+.priv-desc{color:var(--t2);font-size:14px;line-height:1.8}
+.priv-items{display:flex;flex-direction:column;gap:10px}
+.priv-item{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:14px;background:rgba(255,255,255,.7);border:1px solid rgba(0,0,0,.04);font-size:13px;font-weight:500;color:var(--t);transition:all .3s}
+[data-theme="dark"] .priv-item{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.06)}
+.priv-item:hover{background:rgba(255,255,255,.9);box-shadow:0 4px 16px rgba(0,0,0,.04)}
+[data-theme="dark"] .priv-item:hover{background:rgba(255,255,255,.08)}
+.priv-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:rgba(124,58,237,.06);flex-shrink:0;font-size:15px}
+.tests{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.test{padding:28px;border-radius:20px;background:var(--card-bg);border:1px solid var(--bd);transition:all .3s}
+.test:hover{border-color:var(--bd2);transform:translateY(-3px)}
+.test .stars{color:var(--am);font-size:12px;letter-spacing:2px;margin-bottom:12px}
+.test .text{font-size:13px;color:var(--t2);line-height:1.8;margin-bottom:16px;font-style:italic}
+.test .user{display:flex;align-items:center;gap:10px}
+.test .avatar{width:32px;height:32px;border-radius:50%}
+.test .avatar.a{background:linear-gradient(135deg,#7c3aed,#a78bfa)}.test .avatar.b{background:linear-gradient(135deg,#ec4899,#f472b6)}.test .avatar.c{background:linear-gradient(135deg,#0071e3,#60a5fa)}
+.test .name{font-size:12px;font-weight:700}.test .rel{font-size:10px;color:var(--t3)}
+.faq-list{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.faq{border-radius:14px;background:var(--card-bg);border:1px solid var(--bd);overflow:hidden;transition:border-color .3s}
+.faq.open{border-color:rgba(0,113,227,.15)}
+.faq-q{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;cursor:pointer;font-size:14px;font-weight:600;color:var(--t);transition:color .2s}
+.faq-q:hover{color:var(--bl)}
+.faq-a-icon{width:24px;height:24px;border-radius:50%;background:var(--bg2);display:grid;place-items:center;font-size:10px;color:var(--t3);transition:transform .3s,background .3s;flex-shrink:0}
+.faq.open .faq-a-icon{transform:rotate(180deg);background:rgba(0,113,227,.08);color:var(--bl)}
+.faq-ans{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.16,1,.3,1),padding .3s}
+.faq.open .faq-ans{max-height:180px;padding:0 22px 18px}
+.faq-ans p{font-size:13px;color:var(--t2);line-height:1.8}
+.cta{text-align:center;padding:100px 0}
+.cta h2{font-size:clamp(36px,5vw,64px);font-weight:800;line-height:1.08;letter-spacing:-.035em;margin-bottom:16px}
+.cta p{font-size:clamp(15px,1.6vw,19px);color:var(--t2);margin-bottom:32px}
+footer{padding:32px 0;border-top:.5px solid var(--bd)}
+.footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.footer-links{display:flex;gap:20px}
+.footer-links a{font-size:12px;color:var(--t3);font-weight:500;transition:color .2s}
+.footer-links a:hover{color:var(--bl)}
+.footer-copy{font-size:11px;color:var(--t3)}.footer-copy a{color:var(--bl)}
+.btt{position:fixed;bottom:24px;right:24px;width:44px;height:44px;border-radius:50%;background:var(--bl);color:#fff;display:grid;place-items:center;font-size:18px;box-shadow:0 4px 16px rgba(0,113,227,.3);opacity:0;transform:translateY(20px);transition:all .3s;z-index:90;pointer-events:none}
+.btt.show{opacity:1;transform:none;pointer-events:auto}
+.btt:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,113,227,.4)}
+@media(max-width:1024px){.bento{grid-template-columns:repeat(2,1fr)}.bento .span2{grid-column:span 1}.gallery{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.nl{display:none}.mb{display:grid}.show-grid{grid-template-columns:1fr}.show-grid .show-visual{order:-1}.steps{grid-template-columns:1fr;gap:20px}.plats,.dl-grid{grid-template-columns:1fr;max-width:360px;margin:0 auto}.tests{grid-template-columns:1fr;max-width:400px;margin:0 auto}.priv-grid{grid-template-columns:1fr}.priv-box{padding:32px 20px}.footer-inner{flex-direction:column;text-align:center}.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.phone{width:220px;height:450px;border-radius:36px}.pscreen{border-radius:30px}.fl{display:none}.bento,.gallery{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+@media(prefers-reduced-motion:reduce){.rv{opacity:1!important;transform:none!important;transition:none!important}.orb,.scroll-hint{animation:none!important}html{scroll-behavior:auto}}
+@keyframes pls{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+<nav class="nav" id="mn"><div class="ni">
+<a href="#" class="logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs><linearGradient id="gb" x1="100" y1="70" x2="920" y2="950" gradientUnits="userSpaceOnUse"><stop stop-color="#FDF8FF"/><stop offset=".46" stop-color="#E8D4F5"/><stop offset="1" stop-color="#F8CEDF"/></linearGradient><linearGradient id="gv" x1="245" y1="230" x2="700" y2="790" gradientUnits="userSpaceOnUse"><stop stop-color="#A86BC5"/><stop offset="1" stop-color="#784396"/></linearGradient><linearGradient id="gr" x1="770" y1="245" x2="350" y2="810" gradientUnits="userSpaceOnUse"><stop stop-color="#ED8CB5"/><stop offset="1" stop-color="#C65F91"/></linearGradient></defs><rect x="38" y="38" width="948" height="948" rx="232" fill="url(#gb)"/><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M512 779C397 694 224 571 224 394c0-104 72-178 164-178 58 0 101 29 124 72 23-43 66-72 124-72 92 0 164 74 164 178 0 177-173 300-288 385Z" stroke="url(#gv)" stroke-width="106" opacity=".94"/><path d="M512 779C397 694 224 571 224 394c0-104 72-178 164-178 58 0 101 29 124 72 23-43 66-72 124-72 92 0 164 74 164 178 0 177-173 300-288 385Z" stroke="url(#gr)" stroke-width="54" opacity=".92"/></g><circle cx="512" cy="493" r="55" fill="#FFF" fill-opacity=".92"/><path d="m489 493 17 17 33-38" fill="none" stroke="#B467AD" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Love小家</span></a>
+<div class="nl">
+<a href="#features" data-sec="features">功能</a>
+<a href="#compare" data-sec="compare">对比</a>
+<a href="#showcase" data-sec="showcase">亮点</a>
+<a href="#how" data-sec="how">上手</a>
+<a href="#download" data-sec="download">下载</a>
+<a href="#faq" data-sec="faq">FAQ</a>
+<a href="https://github.com/XTH-LOVE/Love-" target="_blank" rel="noopener">GitHub</a>
+<button class="theme-toggle" id="themeToggle" aria-label="切换主题">🌙</button>
+<a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="nb">开始使用</a>
+</div>
+<button class="mb" id="mb" aria-label="菜单"><span></span></button>
+</div></nav>
+<div class="dr" id="dr"><div class="dp">
+<button class="dc" id="dcl" aria-label="关闭">✕</button>
+<div class="dl">
+<a href="#features">功能</a><a href="#compare">对比</a><a href="#showcase">亮点</a><a href="#how">上手</a><a href="#download">下载</a><a href="#faq">FAQ</a>
+<a href="https://github.com/XTH-LOVE/Love-" target="_blank" rel="noopener">GitHub</a>
+<a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="dcta">开始使用 →</a>
+</div></div></div>
+<section class="hero" id="hero"><div class="W">
+<div class="rv"><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);font-size:11px;font-weight:700;color:var(--v);letter-spacing:.04em;text-transform:uppercase;margin-bottom:20px"><span style="width:6px;height:6px;border-radius:50%;background:var(--gn);box-shadow:0 0 8px var(--gn);animation:pls 2s ease-in-out infinite"></span> 开源 · 跨平台 · 实时同步</span></div>
+<h1 class="rv d1">只属于你们俩的<br><span class="gt">私密生活空间</span></h1>
+<p class="sub rv d2">把照片、视频、悄悄话、纪念日、AI 灵感和共同宠物，<br>认真收藏在一起。不是公开社交网络，而是只属于你们的房间。</p>
+<div class="hact rv d3">
+<a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="b1">打开在线体验 →</a>
+<a href="https://github.com/XTH-LOVE/Love-" target="_blank" rel="noopener" class="b2"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/></svg>GitHub</a>
+</div>
+<div class="phone-wrap rv d4">
+<div class="phone-glow"></div>
+<div class="phone"><div class="pscreen">
+<div class="ptop"><span>9:41</span><span style="color:var(--gn)">⚡ 100</span></div>
+<div class="phdr"><div class="g">晚上好 ♡</div><div class="t">我们的小家</div></div>
+<div class="pcards">
+<div class="pcard hl"><div class="lb">我们在一起</div><div class="vl">520 天</div><div class="sb">从 2024 年 3 月 16 日开始</div></div>
+<div class="pcard"><div class="lb">最近回忆</div><div class="pgrid"><i style="background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(236,72,152,.08))"></i><i style="background:linear-gradient(135deg,rgba(0,113,227,.12),rgba(52,199,89,.08))"></i><i style="background:linear-gradient(135deg,rgba(255,159,10,.12),rgba(236,72,152,.08))"></i><i style="background:linear-gradient(135deg,rgba(52,199,89,.12),rgba(124,58,237,.08))"></i></div></div>
+<div class="pcard" style="background:rgba(255,255,255,.5)"><div class="lb">下一个纪念日</div><div class="sb" style="color:var(--v);font-weight:700;margin-top:2px">相识 600 天 · 还有 80 天</div></div>
+</div>
+<div class="pnav"><div class="pnv-i on"><span>🏠</span>首页</div><div class="pnv-i"><span>📷</span>相册</div><div class="pnv-i"><span>💬</span>悄悄话</div><div class="pnv-i"><span>🐾</span>宠物</div></div>
+</div></div>
+<div class="fl a"><span class="fi pk">💌</span>收到一封情书</div>
+<div class="fl b"><span class="fi pp">🐾</span>宠物升级了!</div>
+<div class="fl c"><span class="fi bl">📍</span>分享位置给你</div>
+</div>
+</div>
+<div class="scroll-hint"><span>向下滚动</span><div class="arrow"></div></div>
+</section>
+<section id="compare" class="alt"><div class="W">
+<div class="sh rv"><span class="tag">✦ 对比优势</span><h2>为什么选择 <span class="gt">Love小家</span></h2><p>与其他情侣应用相比，Love小家的独特优势。</p></div>
+<div class="cmp-wrap rv">
+<table class="cmp-table">
+<thead><tr><th>功能特性</th><th>微信</th><th>情侣空间</th><th>恋爱记</th><th class="hl">Love小家</th></tr></thead>
+<tbody>
+<tr><td>私密数据隔离</td><td>✖</td><td>✖</td><td>○</td><td class="hl">✔</td></tr>
+<tr><td>开源免费</td><td>✖</td><td>✖</td><td>✖</td><td class="hl">✔</td></tr>
+<tr><td>自托管部署</td><td>✖</td><td>✖</td><td>✖</td><td class="hl">✔</td></tr>
+<tr><td>AI 情书/日记</td><td>✖</td><td>✖</td><td>○</td><td class="hl">✔</td></tr>
+<tr><td>3D 宠物养成</td><td>✖</td><td>✖</td><td>✖</td><td class="hl">✔</td></tr>
+<tr><td>跨平台一致体验</td><td>○</td><td>○</td><td>○</td><td class="hl">✔</td></tr>
+<tr><td>音视频通话</td><td>✔</td><td>✖</td><td>✖</td><td class="hl">✔</td></tr>
+</tbody>
+</table>
+<div class="cmp-note rv d2">✔ 完全支持 · ○ 部分支持 · ✖ 不支持</div>
+</div></div></section>
+<section id="features"><div class="W">
+<div class="sh rv"><span class="tag">✦ 功能一览</span><h2>为两个人设计的<br><span class="gt">完整体验</span></h2><p>不是功能拼凑，而是一个有温度的整体。每一个模块都为你们的亲密关系而设计。</p></div>
+<div class="bento">
+<div class="card span2 rv d1"><div class="ci" style="background:rgba(236,72,152,.06);border:1px solid rgba(236,72,152,.1)">🏠</div><h3>共同首页</h3><p>实时在一起的天数、共同封面、最近回忆预览、今日情话和纪念日倒计时。</p></div>
+<div class="card span2 rv d2"><div class="ci" style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1)">📖</div><h3>时光轴</h3><p>按日期记录文字、地点、照片和视频，写下值得记住的每一天。</p></div>
+<div class="card rv d3"><div class="ci" style="background:rgba(0,113,227,.06);border:1px solid rgba(0,113,227,.1)">📷</div><h3>相册管理</h3><p>多相册管理照片和视频，支持压缩上传和签名地址安全访问。</p></div>
+<div class="card rv d4"><div class="ci" style="background:rgba(52,199,89,.06);border:1px solid rgba(52,199,89,.1)">💬</div><h3>悄悄话</h3><p>双人实时消息，支持文字、照片、视频、语音和位置分享。</p></div>
+<div class="card rv d5"><div class="ci" style="background:rgba(255,159,10,.06);border:1px solid rgba(255,159,10,.1)">📅</div><h3>纪念日</h3><p>设置重要日期，创建可重复的纪念日，实时计算共同经历的时间。</p></div>
+<div class="card rv d6"><div class="ci" style="background:rgba(236,72,152,.06);border:1px solid rgba(236,72,152,.1)">✅</div><h3>共同清单</h3><p>创建共同计划和优先级，一方完成后另一方实时看到状态变化。</p></div>
+<div class="card span2 rv d3"><div class="ci" style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1)">🤖</div><h3>心动 AI</h3><p>MiMo 驱动的 AI 约会策划、共同日记和情书生成，让 AI 帮你写得更像你们。</p></div>
+<div class="card span2 rv d4"><div class="ci" style="background:rgba(52,199,89,.06);border:1px solid rgba(52,199,89,.1)">🐾</div><h3>宠物小屋</h3><p>一起养一只 3D 宠物，支持喂养、互动、成长进化和续火花天数。</p></div>
+</div></div></section>
+<section class="alt" id="stats"><div class="W"><div class="stats">
+<div class="stat rv d1"><div class="num gt" data-target="12">0</div><div class="label">核心功能模块</div></div>
+<div class="stat rv d2"><div class="num gt" data-target="3">0</div><div class="label">平台全覆盖</div></div>
+<div class="stat rv d3"><div class="num gt2" data-target="100">0</div><div class="label">% 开源免费</div></div>
+<div class="stat rv d4"><div class="num gt2" data-target="24">0</div><div class="label">/7 实时同步</div></div>
+</div></div></section>
+<section id="showcase"><div class="W"><div class="show-grid">
+<div class="show-visual rv"><div class="show-inner">
+<div class="sr"><div class="sva a"></div><div class="svb">今天的晚霞好美，想和你一起看 ♡</div></div>
+<div class="sr sf"><div class="svb sf">下次我们一起去海边看日落吧!</div><div class="sva b"></div></div>
+<div class="sr"><div class="sva a"></div><div class="svb">好呀! 我把它加到清单里了 ✨</div></div>
+<div class="sr sf"><div class="svb sf">🐾 宠物狐狸刚刚升级了!</div><div class="sva b"></div></div>
+</div></div>
+<div>
+<div class="sh rv" style="text-align:left;margin-bottom:28px"><span class="tag">✦ 产品亮点</span><h2 style="font-size:clamp(28px,3.5vw,44px)">不只是工具，<br>是<span class="gt">有温度的陪伴</span></h2></div>
+<div class="check-list">
+<div class="check-item rv d1"><span class="check-icon">✓</span><span>淡紫淡粉渐变、玻璃质感和柔和阴影，每一处细节都经过精心设计</span></div>
+<div class="check-item rv d2"><span class="check-icon">✓</span><span>实时同步消息、位置和宠物状态，两个人始终连接在一起</span></div>
+<div class="check-item rv d3"><span class="check-icon">✓</span><span>开屏动画、品牌视觉和情绪化交互，每次打开都有仪式感</span></div>
+<div class="check-item rv d4"><span class="check-icon">✓</span><span>Web、Android 和 Windows 桌面端一致体验，随时随地打开空间</span></div>
+</div></div></div></div></section>
+<section id="how" class="alt"><div class="W">
+<div class="sh rv"><span class="tag">✦ 快速上手</span><h2>三步开启<span class="gt">你们的空间</span></h2><p>开源、可自托管。克隆仓库，配置好环境变量，几分钟就能拥有属于自己的情侣空间。</p></div>
+<div class="steps">
+<div class="step rv d2"><div class="sn">1</div><h3>克隆 & 安装</h3><p>git clone 仓库后运行 npm install，复制 .env.example 为 .env 并填入 Supabase 配置。</p></div>
+<div class="step rv d4"><div class="sn">2</div><h3>初始化数据库</h3><p>使用 Supabase CLI 推送 migrations，部署 Edge Functions 并配置 AI 和通话密钥。</p></div>
+<div class="step rv d6"><div class="sn">3</div><h3>启动 & 部署</h3><p>npm run dev 本地预览，npm run generate 生成静态站点，部署到 Cloudflare Pages。</p></div>
+</div></div></section>
+<section id="download"><div class="W">
+<div class="sh rv"><span class="tag">✦ 获取应用</span><h2>选择你的<span class="gt2">使用方式</span></h2><p>网页版即开即用，也可以直接下载客户端获得原生体验。无需访问 GitHub。</p></div>
+<div class="dl-grid">
+<div class="dl-card rv d2"><div class="icon">🌐</div><h3>在线体验</h3><p>无需安装，打开浏览器即可使用。支持 PWA 安装到主屏幕。</p><a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="dl-btn">打开网页版 →</a></div>
+<div class="dl-card rv d4"><div class="icon">📱</div><h3>Android APK</h3><p>原生 Android 体验，支持推送通知和后台运行。下载后将 .zip 后缀改为 .apk 即可安装。</p><a href="https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love小家-latest.zip" download class="dl-btn gh">下载 APK ↓</a></div>
+<div class="dl-card rv d6"><div class="icon">💻</div><h3>Windows 桌面版</h3><p>轻量桌面客户端，独立窗口运行。点击直接下载（142MB）。</p><a href="https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love小家-Windows-x64.exe" download class="dl-btn gh">下载 EXE ↓</a></div>
+</div></div></section>
+<section id="platforms" class="alt"><div class="W">
+<div class="sh rv"><span class="tag">✦ 多端支持</span><h2>随时随地，<span class="gt2">打开你们的空间</span></h2><p>一个项目，三种形态。网页版即开即用，Android 和 Windows 客户端提供原生体验。</p></div>
+<div class="plats">
+<div class="plat rv d2"><div class="pi" style="background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1);color:var(--v)">🌐</div><h3>Web 网页版</h3><p>基于 Nuxt 4 静态生成，部署到 Cloudflare Pages。PWA 支持安装到主屏幕。</p><span class="badge">即开即用</span></div>
+<div class="plat rv d4"><div class="pi" style="background:rgba(52,199,89,.06);border:1px solid rgba(52,199,89,.1);color:var(--gn)">📱</div><h3>Android 客户端</h3><p>通过 Capacitor 构建原生 APK，接入系统推送通知和地理位置。</p><span class="badge">APK 构建</span></div>
+<div class="plat rv d6"><div class="pi" style="background:rgba(0,113,227,.06);border:1px solid rgba(0,113,227,.1);color:var(--bl)">💻</div><h3>Windows 桌面版</h3><p>基于 Electron 的轻量桌面壳，自动加载线上 Web 版本。</p><span class="badge">EXE 安装包</span></div>
+</div></div></section>
+<section id="tech"><div class="W">
+<div class="sh rv"><span class="tag">✦ 技术栈</span><h2>现代技术，<span class="gt">稳定可靠</span></h2><p>基于成熟的技术栈构建，确保性能和稳定性。</p></div>
+<div class="tech-grid rv">
+<div class="tech-item"><span class="dot" style="background:#42b883"></span>Nuxt 4</div>
+<div class="tech-item"><span class="dot" style="background:#3ecf8e"></span>Supabase</div>
+<div class="tech-item"><span class="dot" style="background:#3178c6"></span>TypeScript</div>
+<div class="tech-item"><span class="dot" style="background:#4285f4"></span>Capacitor</div>
+<div class="tech-item"><span class="dot" style="background:#47848f"></span>Electron</div>
+<div class="tech-item"><span class="dot" style="background:#000"></span>Three.js</div>
+<div class="tech-item"><span class="dot" style="background:#88ce02"></span>GSAP</div>
+<div class="tech-item"><span class="dot" style="background:#f5a623"></span>Cloudflare Pages</div>
+</div></div></section>
+<section id="privacy" class="alt"><div class="W">
+<div class="sh rv"><span class="tag">✦ 安全与隐私</span><h2><span class="gt">安全边界</span>是核心设计</h2><p>Love小家处理的是情侣之间的私密数据。安全不是事后补丁，而是从第一行代码就开始的坚持。</p></div>
+<div class="priv-box rv"><div class="priv-grid">
+<div><h3 class="priv-title gt">隐私优先架构</h3><p class="priv-desc">每一层数据访问都经过严格隔离。从数据库行级安全到 AI 密钥管理，全链路保护你们的私密数据。</p></div>
+<div class="priv-items">
+<div class="priv-item rv d2"><span class="priv-icon">🔒</span><span>RLS 行级安全策略，数据以 couple_id 为边界隔离</span></div>
+<div class="priv-item rv d3"><span class="priv-icon">🔑</span><span>Storage 签名地址，不暴露公开永久文件 URL</span></div>
+<div class="priv-item rv d4"><span class="priv-icon">🛡️</span><span>敏感密钥只存服务端 Edge Function Secrets</span></div>
+<div class="priv-item rv d5"><span class="priv-icon">🌐</span><span>AI 请求通过服务端转发，浏览器不接触供应商密钥</span></div>
+</div></div></div></div></section>
+<section><div class="W">
+<div class="sh rv"><span class="tag">✦ 用户心声</span><h2>他们都在用 <span class="gt">Love小家</span></h2><p>来自真实用户的反馈，看看他们如何记录属于自己的爱情故事。</p></div>
+<div class="tests">
+<div class="test rv d2"><div class="stars">★★★★★</div><p class="text">"终于有一个只属于我们两个人的空间了，不用在微信群里翻聊天记录，所有美好的回忆都在这里。"</p><div class="user"><div class="avatar a"></div><div><div class="name">小鱼 & 阿杰</div><div class="rel">在一起 2 年</div></div></div></div>
+<div class="test rv d4"><div class="stars">★★★★★</div><p class="text">"宠物小屋太可爱了！我们每天一起喂宠物，感觉就像真的在养一只属于我们的小动物。"</p><div class="user"><div class="avatar b"></div><div><div class="name">晓晓 & 大伟</div><div class="rel">异地恋 1.5 年</div></div></div></div>
+<div class="test rv d6"><div class="stars">★★★★★</div><p class="text">"AI 写的情书太浪漫了，每次纪念日都能给 TA 一个惊喜。开源项目能做到这种程度真的很厉害。"</p><div class="user"><div class="avatar c"></div><div><div class="name">小雅 & 阿明</div><div class="rel">已婚 3 年</div></div></div></div>
+</div></div></section>
+<section id="faq" class="alt"><div class="W">
+<div class="sh rv"><span class="tag">✦ 常见问题</span><h2>你可能想知道的</h2><p>关于部署、使用和安全的一些常见问题解答。</p></div>
+<div class="faq-list">
+<div class="faq rv d2"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">登录后为什么还是演示模式？<span class="faq-a-icon">▾</span></div><div class="faq-ans"><p>检查 .env 中的 Supabase URL 和 anon key，确认部署环境也配置了相同变量，并重新生成静态文件。</p></div></div>
+<div class="faq rv d3"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">通话提示 Token 无效怎么办？<span class="faq-a-icon">▾</span></div><div class="faq-ans"><p>ZEGO 的前端 App ID 不能替代 ServerSecret。请在 Supabase Edge Function Secrets 中配置真实密钥。</p></div></div>
+<div class="faq rv d4"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">能不能只用网页，不构建 APK？<span class="faq-a-icon">▾</span></div><div class="faq-ans"><p>当然可以。运行 npm run generate 后部署 .output/public/ 到静态托管即可。</p></div></div>
+<div class="faq rv d5"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">数据存储在哪里？是否安全？<span class="faq-a-icon">▾</span></div><div class="faq-ans"><p>所有数据存储在你自己配置的 Supabase 项目中，使用 RLS 行级安全策略隔离，可完全自托管。</p></div></div>
+<div class="faq rv d6"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">如何贡献代码或提出建议？<span class="faq-a-icon">▾</span></div><div class="faq-ans"><p>欢迎在 GitHub 提交 Issue 或 Pull Request。Fork 仓库，创建功能分支，保持修改范围清晰即可。</p></div></div>
+</div></div></section>
+<section class="cta"><div class="W">
+<h2 class="rv">开始属于你们的<br><span class="gt">故事</span></h2>
+<p class="rv d1">开源、免费、可自托管。今天就开始记录。</p>
+<div class="hact rv d2">
+<a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="b1">打开在线体验 →</a>
+<a href="https://github.com/XTH-LOVE/Love-" target="_blank" rel="noopener" class="b2">访问 GitHub</a>
+</div></div></section>
+<footer><div class="W footer-inner">
+<div class="footer-links">
+<a href="https://github.com/XTH-LOVE/Love-" target="_blank" rel="noopener">GitHub</a>
+<a href="https://love-home.pages.dev/" target="_blank" rel="noopener">在线体验</a>
+<a href="https://github.com/XTH-LOVE/Love-/blob/HEAD/LICENSE" target="_blank" rel="noopener">MIT License</a>
+</div>
+<p class="footer-copy">Love小家 &copy; 2024–2026 · 由 <a href="https://github.com/XTH-LOVE" target="_blank" rel="noopener">XTH-LOVE</a> 用 ♡ 构建</p>
+</div></footer>
+<button class="btt" id="btt" aria-label="回到顶部">↑</button>
+<script>
+document.documentElement.classList.add('js-ready');
+// Theme toggle
+const tt=document.getElementById('themeToggle');
+const saved=localStorage.getItem('theme');
+if(saved){document.documentElement.setAttribute('data-theme',saved);tt.textContent=saved==='dark'?'☀️':'🌙'}
+tt.addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const next=cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  localStorage.setItem('theme',next);
+  tt.textContent=next==='dark'?'☀️':'🌙';
+});
+// Reveal on scroll
+const io=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('v');io.unobserve(x.target)}})},{threshold:.08,rootMargin:'0px 0px -30px 0px'});
+document.querySelectorAll('.rv').forEach(e=>io.observe(e));
+// Nav scroll effect
+const nav=document.getElementById('mn');
+window.addEventListener('scroll',()=>{nav.classList.toggle('sc',window.scrollY>20)},{passive:true});
+// Nav section highlighting
+const secs=document.querySelectorAll('section[id]');
+const navLinks=document.querySelectorAll('.nl a[data-sec]');
+const secObs=new IntersectionObserver(entries=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      navLinks.forEach(l=>l.classList.remove('on'));
+      const link=document.querySelector('.nl a[data-sec="'+en.target.id+'"]');
+      if(link)link.classList.add('on');
+    }
+  });
+},{threshold:.3,rootMargin:'-80px 0px -50% 0px'});
+secs.forEach(s=>secObs.observe(s));
+// Counter animation
+const counters=document.querySelectorAll('.num[data-target]');
+const cObs=new IntersectionObserver(entries=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      const el=en.target,target=+el.dataset.target;
+      let cur=0;const step=Math.ceil(target/30);
+      const timer=setInterval(()=>{cur+=step;if(cur>=target){cur=target;clearInterval(timer)}el.textContent=cur},40);
+      cObs.unobserve(el);
+    }
+  });
+},{threshold:.5});
+counters.forEach(c=>cObs.observe(c));
+// Back to top
+const btt=document.getElementById('btt');
+window.addEventListener('scroll',()=>{btt.classList.toggle('show',window.scrollY>600)},{passive:true});
+btt.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+// Drawer
+const dr=document.getElementById('dr');
+document.getElementById('mb').addEventListener('click',()=>dr.classList.add('open'));
+document.getElementById('dcl').addEventListener('click',()=>dr.classList.remove('open'));
+dr.addEventListener('click',e=>{if(e.target===dr)dr.classList.remove('open')});
+dr.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>dr.classList.remove('open')));
+// Smooth scroll for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+    e.preventDefault();
+    const t=document.querySelector(a.getAttribute('href'));
+    if(t)t.scrollIntoView({behavior:'smooth'});
+  });
+});
+</script>
+</body>
+</html>

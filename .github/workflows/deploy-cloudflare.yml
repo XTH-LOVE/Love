@@ -42,6 +42,15 @@ jobs:
       - name: Generate static site
         run: npm run generate
 
+      - name: Download latest APK from GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p .output/public/downloads
+          gh release download --repo XTH-LOVE/Love- --pattern "*.apk" --dir .output/public/downloads --clobber
+          # Rename to the canonical filename expected by app-update.json
+          cd .output/public/downloads && for f in *.apk; do mv "$f" "Love小家-latest.apk"; done && cd -
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:

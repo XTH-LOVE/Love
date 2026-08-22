@@ -55,6 +55,11 @@ export default defineNuxtConfig({
       updateManifestUrl: process.env.NUXT_PUBLIC_UPDATE_MANIFEST_URL || 'https://love-home.pages.dev/app-update.json',
     },
   },
+  nitro: {
+    prerender: {
+      failOnError: false,
+    },
+  },
   routeRules: {
     '/**': { headers: { 'cache-control': 'no-store, max-age=0' } },
   },

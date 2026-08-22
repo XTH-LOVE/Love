@@ -11,6 +11,23 @@ const startupVisible = ref(false)
 const seconds = ref(10)
 let timer: ReturnType<typeof setInterval> | undefined
 let startupTimer: ReturnType<typeof setTimeout> | undefined
+let leaveFallback: ReturnType<typeof setTimeout> | undefined
+const dismissed = ref(false)
+
+// Defensive cleanup: if the Vue <Transition> leave never completes
+// (e.g. transitionend dropped during GSAP revert), the splash element
+// can linger as an invisible full-screen overlay that blocks all clicks.
+function ensureSplashGone() {
+  if (dismissed.value) return
+  dismissed.value = true
+  startupVisible.value = false
+  visible.value = false
+  const host = splashRoot.value
+  if (host) host.innerHTML = ''
+  if (timer) { clearInterval(timer); timer = undefined }
+  if (startupTimer) { clearTimeout(startupTimer); startupTimer = undefined }
+  if (leaveFallback) { clearTimeout(leaveFallback); leaveFallback = undefined }
+}
 
 function playStartupIntro() {
   const startup = splashRoot.value?.querySelector('.startup-splash')
@@ -62,7 +79,13 @@ onMounted(() => {
   startupVisible.value = true
   startupTimer = setTimeout(() => {
     startupVisible.value = false
-    if (accepted) return
+    // Startup splash leave should finish in ~0.45s; force removal after 1.5s
+    // so a stalled transition can never block input on the login page.
+    leaveFallback = setTimeout(ensureSplashGone, 1500)
+    if (accepted) {
+      ensureSplashGone()
+      return
+    }
     visible.value = true
     timer = setInterval(() => {
       seconds.value -= 1
@@ -73,6 +96,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer)
   if (startupTimer) clearTimeout(startupTimer)
+  if (leaveFallback) clearTimeout(leaveFallback)
   startupTimeline?.kill()
   declarationTimeline?.kill()
   animationContext?.revert()
@@ -82,6 +106,8 @@ function enter() {
   if (seconds.value > 0) return
   localStorage.setItem('couple-space-declaration-accepted', '1')
   visible.value = false
+  // Declaration splash leave is 0.5s; force removal as a safety net.
+  leaveFallback = setTimeout(ensureSplashGone, 1500)
 }
 </script>
 
@@ -147,14 +173,14 @@ function enter() {
 .startup-mark{position:relative;display:grid;place-items:center;width:128px;height:128px;margin-bottom:20px;border:1px solid rgba(255,255,255,.62);border-radius:40px;background:rgba(255,255,255,.17);box-shadow:0 24px 60px rgba(51,17,76,.28),inset 0 1px rgba(255,255,255,.58);backdrop-filter:blur(18px);animation:startup-mark-in .9s cubic-bezier(.2,1.2,.35,1)}
 .startup-mark img{width:82px;filter:drop-shadow(0 12px 18px rgba(49,12,73,.28))}.startup-mark span{position:absolute;right:10px;bottom:6px;font-size:25px;color:#fff;animation:startup-heart 1.2s ease-in-out infinite}
 .startup-splash>strong{position:relative;font-size:30px;letter-spacing:.02em;text-shadow:0 5px 22px rgba(49,12,73,.24);animation:startup-copy-in .8s .12s both}.startup-splash>p{position:relative;margin:8px 0 25px;color:rgba(255,255,255,.82);font-size:12px;letter-spacing:.12em;animation:startup-copy-in .8s .2s both}.startup-progress{position:relative;width:110px;height:3px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.25)}.startup-progress i{display:block;width:35%;height:100%;border-radius:inherit;background:#fff;animation:startup-progress 1.45s ease-in-out forwards}
-.startup-splash-enter-active{transition:opacity .35s ease}.startup-splash-leave-active{transition:opacity .45s ease,filter .45s ease}.startup-splash-enter-from,.startup-splash-leave-to{opacity:0;filter:blur(9px)}
+.startup-splash-enter-active{transition:opacity .35s ease}.startup-splash-leave-active{transition:opacity .45s ease,filter .45s ease;pointer-events:none}.startup-splash-enter-from,.startup-splash-leave-to{opacity:0;filter:blur(9px)}
 @keyframes startup-mark-in{from{opacity:0;transform:scale(.72) rotate(-9deg)}to{opacity:1;transform:none}}@keyframes startup-copy-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@keyframes startup-heart{50%{transform:scale(1.18) rotate(-8deg)}}@keyframes startup-float{50%{transform:translateY(-18px) scale(1.12)}}@keyframes startup-spin{to{transform:rotate(360deg)}}@keyframes startup-progress{to{width:100%;transform:translateX(0)}}
 @media(max-width:650px){.startup-mark{width:104px;height:104px;border-radius:32px}.startup-mark img{width:68px}.startup-splash>strong{font-size:26px}.startup-splash>p{font-size:10px;letter-spacing:.08em}}
 @media(prefers-reduced-motion:reduce){.startup-splash *{animation:none!important}.startup-progress i{width:100%}}
 </style>
 
 <style scoped>
-.brand-splash{position:fixed;z-index:200;inset:0;display:grid;place-items:center;padding:max(22px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(42px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));overflow:auto;background:linear-gradient(145deg,#fffaff,#eee0f7 48%,#fbdce8);color:#53365d}.glow{position:absolute;width:620px;height:620px;border-radius:50%;background:rgba(255,255,255,.4);filter:blur(55px)}main{position:relative;display:grid;grid-template-columns:280px minmax(0,520px);width:min(100%,800px);overflow:hidden;border:1px solid rgba(255,255,255,.88);border-radius:32px;background:rgba(255,255,255,.46);box-shadow:0 32px 90px rgba(78,48,88,.18);backdrop-filter:blur(22px)}.brand-side{display:flex;align-items:center;justify-content:center;flex-direction:column;padding:38px;background:linear-gradient(155deg,rgba(228,201,245,.7),rgba(249,210,228,.65));text-align:center}.brand-side img{width:132px;filter:drop-shadow(0 20px 28px rgba(99,60,111,.17));animation:mark-in .8s cubic-bezier(.2,1.25,.4,1)}.brand-side small,.declaration>span{margin-top:22px;color:#93669c;font-size:9px;font-weight:850;letter-spacing:.18em}.brand-side h1{margin:8px 0 5px;font-size:30px}.brand-side p{margin:0;color:#88728c;font-size:10px}.declaration{padding:38px}.declaration>span{margin:0}.declaration h2{margin:7px 0 22px;font-size:27px}.statement{display:grid;gap:13px}.statement p{margin:0;color:#75667a;font-size:11px;line-height:1.7}.statement strong{display:block;margin-bottom:2px;color:#55405b;font-size:11px}.declaration>button{width:100%;min-height:49px;margin-top:25px;border:0;border-radius:20px;background:linear-gradient(135deg,#8c4fb1,#d8649d);color:#fff;font-size:12px;font-weight:850;box-shadow:0 12px 28px rgba(143,64,148,.22)}.declaration>button:disabled{background:rgba(121,91,128,.14);color:#927f96;box-shadow:none}.declaration>small{display:block;margin-top:10px;color:#a18ea4;font-size:8px;line-height:1.6;text-align:center}.brand-splash>footer{position:absolute;bottom:max(17px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:11px;color:#947799;font-size:9px;font-weight:750}.brand-splash>footer i{width:25px;height:1px;background:#cbb4d0}.splash-leave-active{transition:opacity .5s ease,filter .5s ease}.splash-leave-to{opacity:0;filter:blur(7px)}@keyframes mark-in{from{opacity:0;transform:translateY(15px) scale(.85)}to{opacity:1;transform:none}}@media(max-width:650px){.brand-splash{align-items:start;padding-top:max(14px,env(safe-area-inset-top))}main{grid-template-columns:1fr;border-radius:25px}.brand-side{padding:22px}.brand-side img{width:82px}.brand-side small{margin-top:10px}.brand-side h1{font-size:23px}.declaration{padding:23px 19px}.declaration h2{margin-bottom:16px;font-size:22px}.statement{gap:9px}.statement p,.statement strong{font-size:10px}.declaration>button{min-height:46px;margin-top:18px}.brand-splash>footer{position:fixed}}@media(prefers-reduced-motion:reduce){.brand-side img{animation:none}}
+.brand-splash{position:fixed;z-index:200;inset:0;display:grid;place-items:center;padding:max(22px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(42px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));overflow:auto;background:linear-gradient(145deg,#fffaff,#eee0f7 48%,#fbdce8);color:#53365d}.glow{position:absolute;width:620px;height:620px;border-radius:50%;background:rgba(255,255,255,.4);filter:blur(55px)}main{position:relative;display:grid;grid-template-columns:280px minmax(0,520px);width:min(100%,800px);overflow:hidden;border:1px solid rgba(255,255,255,.88);border-radius:32px;background:rgba(255,255,255,.46);box-shadow:0 32px 90px rgba(78,48,88,.18);backdrop-filter:blur(22px)}.brand-side{display:flex;align-items:center;justify-content:center;flex-direction:column;padding:38px;background:linear-gradient(155deg,rgba(228,201,245,.7),rgba(249,210,228,.65));text-align:center}.brand-side img{width:132px;filter:drop-shadow(0 20px 28px rgba(99,60,111,.17));animation:mark-in .8s cubic-bezier(.2,1.25,.4,1)}.brand-side small,.declaration>span{margin-top:22px;color:#93669c;font-size:9px;font-weight:850;letter-spacing:.18em}.brand-side h1{margin:8px 0 5px;font-size:30px}.brand-side p{margin:0;color:#88728c;font-size:10px}.declaration{padding:38px}.declaration>span{margin:0}.declaration h2{margin:7px 0 22px;font-size:27px}.statement{display:grid;gap:13px}.statement p{margin:0;color:#75667a;font-size:11px;line-height:1.7}.statement strong{display:block;margin-bottom:2px;color:#55405b;font-size:11px}.declaration>button{width:100%;min-height:49px;margin-top:25px;border:0;border-radius:20px;background:linear-gradient(135deg,#8c4fb1,#d8649d);color:#fff;font-size:12px;font-weight:850;box-shadow:0 12px 28px rgba(143,64,148,.22)}.declaration>button:disabled{background:rgba(121,91,128,.14);color:#927f96;box-shadow:none}.declaration>small{display:block;margin-top:10px;color:#a18ea4;font-size:8px;line-height:1.6;text-align:center}.brand-splash>footer{position:absolute;bottom:max(17px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:11px;color:#947799;font-size:9px;font-weight:750}.brand-splash>footer i{width:25px;height:1px;background:#cbb4d0}.splash-leave-active{transition:opacity .5s ease,filter .5s ease;pointer-events:none}.splash-leave-to{opacity:0;filter:blur(7px)}@keyframes mark-in{from{opacity:0;transform:translateY(15px) scale(.85)}to{opacity:1;transform:none}}@media(max-width:650px){.brand-splash{align-items:start;padding-top:max(14px,env(safe-area-inset-top))}main{grid-template-columns:1fr;border-radius:25px}.brand-side{padding:22px}.brand-side img{width:82px}.brand-side small{margin-top:10px}.brand-side h1{font-size:23px}.declaration{padding:23px 19px}.declaration h2{margin-bottom:16px;font-size:22px}.statement{gap:9px}.statement p,.statement strong{font-size:10px}.declaration>button{min-height:46px;margin-top:18px}.brand-splash>footer{position:fixed}}@media(prefers-reduced-motion:reduce){.brand-side img{animation:none}}
 </style>
 <style scoped>
 .brand-splash{background:radial-gradient(circle at 16% 20%,rgba(191,132,246,.45),transparent 25%),radial-gradient(circle at 86% 78%,rgba(255,139,193,.38),transparent 27%),linear-gradient(145deg,#eee0f7,#fbdce8);color:#4a2d54}.glow{display:block;background:rgba(255,255,255,.42);filter:blur(60px)}main{border:1px solid rgba(255,255,255,.85);border-radius:32px;background:rgba(255,255,255,.52);box-shadow:0 32px 90px rgba(78,48,88,.2);backdrop-filter:blur(20px)}.brand-side{background:linear-gradient(155deg,rgba(228,201,245,.8),rgba(249,210,228,.72))}.brand-side img{width:128px;filter:drop-shadow(0 20px 28px rgba(99,60,111,.2));animation:mark-in .8s cubic-bezier(.2,1.25,.4,1)}.brand-side small,.declaration>span{color:#93669c;letter-spacing:.16em}.brand-side h1{color:#4a2d54}.declaration h2{color:#4a2d54}.declaration>button{border:1px solid rgba(255,255,255,.42);border-radius:20px;background:linear-gradient(135deg,#8c4fb1,#d8649d 60%,#70b5e8);box-shadow:0 12px 28px rgba(143,64,148,.24)}.brand-splash>footer{color:#947799}.brand-splash>footer i{background:#cbb4d0}@media(max-width:650px){main{border-radius:25px}.brand-side img{width:82px}}
