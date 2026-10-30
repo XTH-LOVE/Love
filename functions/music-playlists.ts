@@ -4,6 +4,7 @@
 // /api/search/get 对同样的歌单搜索参数更稳定，返回结构也保持兼容。
 const NETEASE_SEARCH_API = 'https://interface.music.163.com/api/search/get/web'
 const GD_PLAYLIST_API = 'https://music-api.gdstudio.xyz/api.php'
+const NETEASE_DETAIL_API = 'https://music.163.com/api/playlist/detail'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,6 +29,21 @@ async function fetchJson(url: string) {
   })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()
+}
+
+async function fetchPlaylist(id: string) {
+  try {
+    const raw = await fetchJson(`${GD_PLAYLIST_API}?${new URLSearchParams({ types: 'playlist', source: 'netease', id }).toString()}`) as { playlist?: Record<string, unknown> }
+    if (raw?.playlist) return raw.playlist
+  } catch {
+    // GD Studio may reject Cloudflare egress with HTTP 520. Use Netease directly below.
+  }
+
+  const official = await fetchJson(`${NETEASE_DETAIL_API}?id=${encodeURIComponent(id)}`) as {
+    result?: Record<string, unknown>
+    playlist?: Record<string, unknown>
+  }
+  return official?.playlist || official?.result || null
 }
 
 export async function onRequest({ request }: { request: Request }): Promise<Response> {
@@ -65,9 +81,7 @@ export async function onRequest({ request }: { request: Request }): Promise<Resp
       if (!/^\d+$/.test(id)) {
         return new Response(JSON.stringify({ error: 'invalid playlist id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
-      const params = new URLSearchParams({ types: 'playlist', source: 'netease', id })
-      const raw = await fetchJson(`${GD_PLAYLIST_API}?${params.toString()}`) as { playlist?: { tracks?: unknown[] } }
-      const playlist = raw?.playlist
+      const playlist = await fetchPlaylist(id) as { tracks?: unknown[] } | null
       if (!playlist) {
         return new Response(JSON.stringify({ error: 'playlist not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }

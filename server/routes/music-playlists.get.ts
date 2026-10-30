@@ -3,6 +3,7 @@
 
 const NETEASE_SEARCH_API = 'https://interface.music.163.com/api/search/get/web'
 const GD_PLAYLIST_API = 'https://music-api.gdstudio.xyz/api.php'
+const NETEASE_DETAIL_API = 'https://music.163.com/api/playlist/detail'
 
 function positiveInt(value: unknown, fallback: number, max: number) {
   const parsed = Number(value)
@@ -20,6 +21,21 @@ async function fetchJson(url: string) {
   })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()
+}
+
+async function fetchPlaylist(id: string) {
+  try {
+    const raw = await fetchJson(`${GD_PLAYLIST_API}?${new URLSearchParams({ types: 'playlist', source: 'netease', id }).toString()}`) as { playlist?: Record<string, unknown> }
+    if (raw?.playlist) return raw.playlist
+  } catch {
+    // GD Studio may reject some server egress with HTTP 520.
+  }
+
+  const official = await fetchJson(`${NETEASE_DETAIL_API}?id=${encodeURIComponent(id)}`) as {
+    result?: Record<string, unknown>
+    playlist?: Record<string, unknown>
+  }
+  return official?.playlist || official?.result || null
 }
 
 export default defineEventHandler(async event => {
@@ -56,11 +72,7 @@ export default defineEventHandler(async event => {
       return { error: 'invalid playlist id' }
     }
 
-    const params = new URLSearchParams({ types: 'playlist', source: 'netease', id })
-    const data = await fetchJson(`${GD_PLAYLIST_API}?${params.toString()}`) as {
-      playlist?: { tracks?: unknown[] }
-    }
-    const playlist = data?.playlist
+    const playlist = await fetchPlaylist(id) as { tracks?: unknown[] } | null
     if (!playlist) {
       setResponseStatus(event, 404)
       return { error: 'playlist not found' }
