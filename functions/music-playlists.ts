@@ -2,7 +2,7 @@
 
 // /api/search/get/web 在 Cloudflare 出口偶尔会返回网易云的人机验证载荷。
 // /api/search/get 对同样的歌单搜索参数更稳定，返回结构也保持兼容。
-const NETEASE_SEARCH_API = 'https://music.163.com/api/search/get'
+const NETEASE_SEARCH_API = 'https://interface.music.163.com/api/search/get/web'
 const GD_PLAYLIST_API = 'https://music-api.gdstudio.xyz/api.php'
 
 const corsHeaders = {

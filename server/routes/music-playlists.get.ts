@@ -1,7 +1,7 @@
 // 网易云歌单代理：搜索使用网易云官方接口，详情与歌曲使用 GD Studio 数据。
 // 统一在服务端请求，避免浏览器直连网易云时被 CORS 或 mixed content 拦截。
 
-const NETEASE_SEARCH_API = 'https://music.163.com/api/search/get'
+const NETEASE_SEARCH_API = 'https://interface.music.163.com/api/search/get/web'
 const GD_PLAYLIST_API = 'https://music-api.gdstudio.xyz/api.php'
 
 function positiveInt(value: unknown, fallback: number, max: number) {
