@@ -44,7 +44,7 @@ const PROXY_API_URL = '/music'
 const HIGEQU_PROXY_API_URL = '/music-higequ'
 const ENDPOINTS = [PROXY_API_URL, DIRECT_API_URL]
 
-const REQUEST_TIMEOUT_MS = 12000
+const REQUEST_TIMEOUT_MS = 9000
 const FAILURE_COOLDOWN_MS = 5 * 60 * 1000
 const PIC_CACHE_KEY = 'couple-space-music-pics-v1'
 const PIC_CACHE_TTL = 7 * 24 * 60 * 60 * 1000

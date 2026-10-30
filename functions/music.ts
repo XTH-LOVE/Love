@@ -28,6 +28,7 @@ export async function onRequest({ request }: { request: Request }): Promise<Resp
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         Referer: 'https://music.gdstudio.xyz/',
       },
+      signal: AbortSignal.timeout(10000),
     })
     const text = await upstream.text()
     return new Response(text, {

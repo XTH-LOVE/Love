@@ -1,6 +1,8 @@
 // Cloudflare Pages Function：网易云歌单搜索、详情与歌曲列表代理。
 
-const NETEASE_SEARCH_API = 'https://music.163.com/api/search/get/web'
+// /api/search/get/web 在 Cloudflare 出口偶尔会返回网易云的人机验证载荷。
+// /api/search/get 对同样的歌单搜索参数更稳定，返回结构也保持兼容。
+const NETEASE_SEARCH_API = 'https://music.163.com/api/search/get'
 const GD_PLAYLIST_API = 'https://music-api.gdstudio.xyz/api.php'
 
 const corsHeaders = {
@@ -22,6 +24,7 @@ async function fetchJson(url: string) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
       Referer: 'https://music.163.com/',
     },
+    signal: AbortSignal.timeout(10000),
   })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()

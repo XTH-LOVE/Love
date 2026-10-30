@@ -465,25 +465,25 @@ export function useListenTogether() {
     }
     if (ownUrl) return { track, url: ownUrl }
 
-    const sources = [track.source, ...FALLBACK_SOURCES.filter(source => source !== track.source)]
-    for (const source of sources.slice(1)) {
-      let candidates: MusicTrack[] = []
+    const sources = FALLBACK_SOURCES.filter(source => source !== track.source)
+    const query = [track.name, track.artist[0]].filter(Boolean).join(' ')
+    for (const source of sources) {
+      let candidates: MusicTrack[]
       try {
-        const query = [track.name, track.artist[0]].filter(Boolean).join(' ')
         candidates = await searchMusic(query, source, 1, 10)
       } catch {
         continue
       }
-      const ordered = [
-        ...candidates.filter(candidate => isLikelySameSong(candidate, track)),
-      ]
-      for (const candidate of ordered.slice(0, 20)) {
-        try {
+      const matches = candidates.filter(candidate => isLikelySameSong(candidate, track)).slice(0, 3)
+      if (!matches.length) continue
+      try {
+        return await Promise.any(matches.map(async candidate => {
           const url = await resolveUrlWithRetry(candidate, true)
-          if (url) return { track: candidate, url }
-        } catch {
-          // Try the next result/provider.
-        }
+          if (!url) throw new Error('候选音源不可播放')
+          return { track: candidate, url }
+        }))
+      } catch {
+        // Keep the provider priority while trying a small candidate set concurrently.
       }
     }
     return null
