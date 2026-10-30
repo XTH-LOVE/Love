@@ -1,4 +1,4 @@
-type CallStatus = 'idle' | 'calling' | 'ringing' | 'connected'
+type CallStatus = 'idle' | 'calling' | 'ringing' | 'connecting' | 'connected' | 'failed'
 type CallMode = 'audio' | 'video'
 
 import { notifySystem, requestSystemAlerts } from './useSystemAlerts'
@@ -26,6 +26,7 @@ let pendingCallMode: CallMode = 'audio'
 let activeCallId = ''
 let pendingInviteId = ''
 let offerRetryTimer: ReturnType<typeof setInterval> | null = null
+let callTimeoutTimer: ReturnType<typeof setTimeout> | null = null
 let ringtoneContext: AudioContext | null = null
 let ringtoneTimer: ReturnType<typeof setInterval> | null = null
 let ringtoneGeneration = 0
@@ -54,6 +55,16 @@ function readableMediaError(error: any, mode: CallMode) {
   if (name === 'NotAllowedError' || name === 'PermissionDeniedError') return '请允许浏览器使用麦克风' + (mode === 'video' ? '和摄像头' : '') + '后重试。'
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return mode === 'video' ? '未找到可用的摄像头或麦克风。' : '未找到可用的麦克风。'
   return ''
+}
+
+function withCallTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(message)), timeoutMs)
+    promise.then(
+      value => { clearTimeout(timeout); resolve(value) },
+      error => { clearTimeout(timeout); reject(error) },
+    )
+  })
 }
 
 function stopRingtone() {
@@ -168,7 +179,7 @@ export function useCoupleCall() {
     const canReconnect = () => !demoMode.value && !!profile.value?.coupleId
     const reconnect = () => ensureChannel()
     if (import.meta.client && !callListenersReady) { callOnlineHandler = () => { channelReconnectAttempt = 0; queueCallChannelReconnect(reconnect, canReconnect) }; window.addEventListener('online', callOnlineHandler); callListenersReady = true }
-    signalChannel = $supabase.channel(`zego-call:${profile.value.coupleId}`, { config: { broadcast: { self: false, ack: true } } })
+    signalChannel = $supabase.channel(`zego-call:${profile.value.coupleId}`, { config: { private: true, broadcast: { self: false, ack: true } } })
       .on('broadcast', { event: 'offer' }, ({ payload }: any) => {
         if (payload?.senderId === profile.value?.id || callStatus.value !== 'idle') return
         const incomingCallId = String(payload?.callId || '')
@@ -184,14 +195,25 @@ export function useCoupleCall() {
         if (payload?.senderId === profile.value?.id || callStatus.value !== 'calling') return
         if (payload?.callId && payload.callId !== activeCallId) return
         stopOfferRetry()
-        try { await joinZegoRoom(callMode.value) } catch (error: any) { callError.value = readableCallError(error, '云通话连接失败'); cleanup() }
+        if (callTimeoutTimer) clearTimeout(callTimeoutTimer)
+        callTimeoutTimer = null
+        callStatus.value = 'connecting'
+        try { await joinZegoRoom(callMode.value) } catch (error: any) { failCall(readableCallError(error, '云通话连接失败')) }
       })
       .on('broadcast', { event: 'hang-up' }, () => cleanup())
-      .on('broadcast', { event: 'reject' }, () => { callError.value = '对方暂时无法接听'; cleanup() })
+      .on('broadcast', { event: 'reject' }, () => failCall('对方暂时无法接听'))
     channelReady = new Promise<void>((resolve, reject) => {
-      signalChannel.subscribe((status: string) => {
+      signalChannel.subscribe((status: string, error?: Error) => {
         if (status === 'SUBSCRIBED') { channelReconnectAttempt = 0; resolve() }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') { reject(new Error('云通话信令连接失败')); queueCallChannelReconnect(reconnect, canReconnect) }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.error('[CoupleSpace] ZEGO call signal subscription failed', {
+            status,
+            error: error?.message,
+            topic: `zego-call:${profile.value?.coupleId || ''}`,
+          })
+          reject(new Error(`云通话信令连接失败（${status}）。请确认 Supabase Realtime 已启用私有频道，并检查 realtime.messages 的 zego-call 权限。`))
+          queueCallChannelReconnect(reconnect, canReconnect)
+        }
       })
     })
     channelReady = channelReady.catch(async error => {
@@ -206,7 +228,11 @@ export function useCoupleCall() {
 
   async function getZegoToken() {
     if (!$supabase) throw new Error('Supabase 尚未配置')
-    const { data, error } = await $supabase.functions.invoke('zego-token', { body: { roomId: roomId(), userName: profile.value?.displayName || 'Love小家' } })
+    const { data, error } = await withCallTimeout(
+      $supabase.functions.invoke('zego-token', { body: { roomKind: 'call', canPublish: true } }),
+      15000,
+      'ZEGO 鉴权请求超过 15 秒没有响应，请检查 Supabase Edge Function 状态和网络。',
+    )
     if (error) {
       let detail = error?.message || 'ZEGO Token 获取失败'
       const response = error?.context
@@ -255,13 +281,12 @@ export function useCoupleCall() {
     })
     zego.on('publisherStateUpdate', (result: any) => {
       if (result?.streamID !== localStreamId || result?.state !== 'NO_PUBLISH' || !result?.errorCode) return
-      callError.value = readableCallError(result, `ZEGO 推流失败（${result.errorCode}）`)
-      cleanup()
+      failCall(readableCallError(result, `ZEGO 推流失败（${result.errorCode}）`))
     })
     zego.on('roomStateUpdate', (_room: string, state: string, errorCode: number, extendedData: string) => {
       if (state === 'DISCONNECTED') {
-        if (errorCode) callError.value = extendedData ? `${extendedData}（错误码 ${errorCode}）` : `ZEGO 房间连接已断开（错误码 ${errorCode}）`
-        cleanup()
+        if (errorCode) failCall(extendedData ? `${extendedData}（错误码 ${errorCode}）` : `ZEGO 房间连接已断开（错误码 ${errorCode}）`)
+        else cleanup()
       }
     })
   }
@@ -284,7 +309,11 @@ export function useCoupleCall() {
     const loginErrors: string[] = []
     for (const candidate of tokens) {
       try {
-        loggedIn = await zego.loginRoom(zegoRoomId, candidate.value, user, { userUpdate: true })
+        loggedIn = await withCallTimeout(
+          zego.loginRoom(zegoRoomId, candidate.value, user, { userUpdate: true }),
+          15000,
+          'ZEGO 房间登录超过 15 秒没有响应，请检查网络和 ZEGO 服务配置。',
+        )
         if (loggedIn) break
       } catch (error: any) {
         lastLoginError = error
@@ -298,7 +327,19 @@ export function useCoupleCall() {
       throw new Error(`${loginDetail}${loginErrors.length ? `（${loginErrors.join('；')}）` : ''}`)
     }
     try {
-      localStream = await createLocalCallStream(zego, mode)
+      const streamPromise = createLocalCallStream(zego, mode)
+      localStream = await withCallTimeout(
+        streamPromise,
+        20000,
+        mode === 'video'
+          ? '摄像头和麦克风初始化超过 20 秒没有响应，请检查设备权限或关闭占用设备的应用。'
+          : '麦克风初始化超过 20 秒没有响应，请检查设备权限或关闭占用设备的应用。',
+      ).catch(error => {
+        if (String(error?.message || '').includes('超过 20 秒')) {
+          void streamPromise.then(stream => stream.getTracks().forEach(track => track.stop())).catch(() => undefined)
+        }
+        throw error
+      })
     } catch (error: any) {
       const mediaDetail = readableMediaError(error, mode)
       if (mediaDetail) throw new Error(mediaDetail)
@@ -337,15 +378,26 @@ export function useCoupleCall() {
           cleanup()
         })
       }, 1500)
+      callTimeoutTimer = setTimeout(() => {
+        if (callStatus.value !== 'calling') return
+        failCall('30 秒内没有收到对方的接听信令，请确认对方在线并已打开悄悄话页面。')
+      }, 30000)
     }
-    catch (error: any) { callError.value = readableCallError(error, '无法发起云通话'); cleanup() }
+    catch (error: any) { failCall(readableCallError(error, '无法发起云通话')) }
   }
 
   async function acceptCall() {
     if (!pendingInvite || callStatus.value !== 'ringing') return
     callError.value = ''; pendingInvite = false; stopRingtone()
-    try { await ensureChannel(); callMode.value = pendingCallMode; activeCallId = pendingInviteId; await broadcast('answer', { callMode: callMode.value, callId: activeCallId }); await joinZegoRoom(callMode.value) }
-    catch (error: any) { callError.value = readableCallError(error, '无法接听云通话'); cleanup() }
+    try {
+      await ensureChannel()
+      callMode.value = pendingCallMode
+      activeCallId = pendingInviteId
+      callStatus.value = 'connecting'
+      await broadcast('answer', { callMode: callMode.value, callId: activeCallId })
+      await joinZegoRoom(callMode.value)
+    }
+    catch (error: any) { failCall(readableCallError(error, '无法接听云通话')) }
   }
 
   async function rejectCall() { stopRingtone(); await broadcast('reject'); pendingInvite = false; cleanup() }
@@ -367,6 +419,8 @@ export function useCoupleCall() {
     void stopNativeCallService()
     void hideNativeCallOverlay()
     stopOfferRetry()
+    if (callTimeoutTimer) clearTimeout(callTimeoutTimer)
+    callTimeoutTimer = null
     if (localStream && zego) { if (localStreamId) zego.stopPublishingStream(localStreamId); zego.destroyStream(localStream) }
     if (zegoRoomId && zego) zego.logoutRoom(zegoRoomId)
     localStream = null; localStreamId = ''; zegoRoomId = ''; remoteStreamIds.forEach(id => zego?.stopPlayingStream(id)); remoteStreamIds.clear(); remoteMediaStreams.clear()
@@ -374,6 +428,12 @@ export function useCoupleCall() {
     if (localVideo.value) localVideo.value.srcObject = null
     if (remoteVideo.value) { remoteVideo.value.pause(); remoteVideo.value.srcObject = null }
     muted.value = false; cameraOff.value = false; pendingInvite = false; activeCallId = ''; pendingInviteId = ''; callMode.value = 'audio'; callStatus.value = 'idle'
+  }
+
+  function failCall(message: string) {
+    callError.value = message
+    cleanup()
+    callStatus.value = 'failed'
   }
 
   async function disconnectCall() {

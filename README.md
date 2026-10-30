@@ -17,6 +17,11 @@
 </p>
 
 <p align="center">
+  <a href="https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love%E5%B0%8F%E5%AE%B6-latest.zip"><img src="https://img.shields.io/badge/Android-下载%20APK-3ddc84?style=for-the-badge" alt="Download APK"></a>
+  <a href="https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love%E5%B0%8F%E5%AE%B6-Windows-x64.exe"><img src="https://img.shields.io/badge/Windows-下载%20EXE-0078d6?style=for-the-badge" alt="Download EXE"></a>
+</p>
+
+<p align="center">
   <a href="#为什么做-love小家">为什么做</a> ·
   <a href="#功能一览">功能一览</a> ·
   <a href="#快速开始">快速开始</a> ·
@@ -27,6 +32,17 @@
 <p align="center">
   <img src="public/login-couple.jpg" width="820" alt="Love小家登录页预览">
 </p>
+
+## 下载安装
+
+| 平台 | 下载方式 | 说明 |
+| --- | --- | --- |
+| Web 网页版 | [打开在线体验](https://love-home.pages.dev/) | 无需安装，支持 PWA 添加到主屏幕 |
+| Android | [下载 APK](https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love%E5%B0%8F%E5%AE%B6-latest.zip) | 下载后把 `.zip` 后缀改为 `.apk` 即可安装（阿里云政策禁止默认域名直连分发 APK） |
+| Windows | [下载 EXE](https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love%E5%B0%8F%E5%AE%B6-Windows-x64.exe) | 142 MB 安装包，下载后双击安装 |
+| 官网 | [love-landing-8s9.pages.dev](https://love-landing-8s9.pages.dev/) | 产品介绍与下载入口 |
+
+国内用户可直接从阿里云 OSS（北京节点）下载，无需访问 GitHub。
 
 ## 为什么做 Love小家
 
@@ -105,7 +121,8 @@ The project is still evolving. Contributions are welcome, especially around acce
 - AI 日记：根据当天真实素材生成可保存的共同日记。
 - AI 情书：选择收件人、字数和语气，生成后保存为长期作品。
 - 生成结果可以展开全文，切换页面后仍可从历史记录中打开。
-- 使用 Supabase Edge Function 代理小米 MiMo 请求，API Key 不放进前端。
+- 使用 Supabase Edge Function 代理 DeepSeek 请求，API Key 只保存在服务端 Secret。
+- 约会策划会检索网页地点线索；搜索不可用或资料不足时会退回通用活动建议，并提示出发前核实。
 - 服务端包含请求长度限制、频率限制和错误提示，避免把 AI 生成变成不可控的黑盒。
 
 ### 宠物小屋：一起养一只属于你们的宠物
@@ -134,7 +151,7 @@ The project is still evolving. Contributions are welcome, especially around acce
 | 实时能力 | Supabase Realtime | 消息、情书、宠物和共同数据同步 |
 | 私密媒体 | Supabase Storage | 照片、视频、语音和短期签名地址 |
 | 服务端能力 | Supabase Edge Functions | AI 请求代理、ZEGO Token、敏感逻辑隔离 |
-| AI | 小米 MiMo | 约会策划、共同日记和情书生成 |
+| AI | DeepSeek Flash | 约会策划、共同日记和情书生成 |
 | 通话 | ZEGO Express | 音频通话、视频通话和开麦模式 |
 | 地图 | Leaflet / 高德地图配置 | 位置消息、实时位置和地图展示 |
 | 3D | Three.js、GLB 模型 | 宠物模型、动作和进化展示 |
@@ -199,7 +216,6 @@ NUXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 - `NUXT_PUBLIC_AMAP_SECURITY_CODE`：高德安全密钥。
 - `NUXT_PUBLIC_ZEGO_APP_ID`：ZEGO App ID。
 - `NUXT_PUBLIC_ZEGO_SERVER`：ZEGO WebSocket 服务地址。
-- `NUXT_PUBLIC_TURN_URLS`、`NUXT_PUBLIC_TURN_USERNAME`、`NUXT_PUBLIC_TURN_CREDENTIAL`：WebRTC 中继配置。
 
 ### 3. 初始化 Supabase
 
@@ -221,12 +237,21 @@ npx supabase functions deploy zego-token
 
 Edge Function Secrets 应在 Supabase 控制台配置：
 
-- `MIMO_API_KEY`
-- `MIMO_BASE_URL`（可选）
-- `MIMO_MODEL`（默认使用项目配置的 MiMo 模型）
+- `AI_PROVIDER=deepseek`（默认值）
+- `DEEPSEEK_API_KEY`（必填，只配置在 Supabase Secrets）
+- `DEEPSEEK_BASE_URL`（可选，默认 `https://api.deepseek.com/v1`）
+- `DEEPSEEK_MODEL`（可选，默认 `deepseek-flash`）
 - `ZEGO_SERVER_SECRET`
 
 这些值只应该存在于服务端 Secrets 中，不要写进 `.env`、README、前端代码或提交记录。
+如果仍需临时切回旧 MiMo 服务，可设置 `AI_PROVIDER=mimo`，并配置 `MIMO_API_KEY`；`MIMO_BASE_URL` 和 `MIMO_MODEL` 可选。
+
+也可以使用 Supabase CLI 配置并部署：
+
+```bash
+npx supabase secrets set AI_PROVIDER=deepseek DEEPSEEK_API_KEY=你的密钥 DEEPSEEK_MODEL=deepseek-flash
+npx supabase functions deploy heart-ai
+```
 
 ### 4. 启动开发环境
 
@@ -286,7 +311,7 @@ Love小家处理的是情侣之间的照片、视频、消息和位置，因此�
 | Web 登录与情侣空间 | ✅ 可用 | 需要配置 Supabase Auth 和数据库 |
 | 首页、相册、时光、纪念日、清单 | ✅ 可用 | 支持真实数据和演示模式 |
 | 双人实时文字与媒体消息 | ✅ 可用 | 需要消息表、Storage 和 Realtime |
-| AI 约会、日记、情书 | ✅ 可用 | 需要部署 `heart-ai` 并配置 MiMo Secrets |
+| AI 约会、日记、情书 | ✅ 可用 | 需要部署 `heart-ai` 并配置 DeepSeek Secrets |
 | 真实地图与位置分享 | 🧪 配置后可用 | 需要地图 Key、域名白名单和定位权限 |
 | 音频/视频通话 | 🧪 配置后可用 | 需要 ZEGO ServerSecret、浏览器媒体权限 |
 | 3D 宠物与成长系统 | 🚧 持续完善 | 当前已接入模型、皮肤、配饰和互动基础 |

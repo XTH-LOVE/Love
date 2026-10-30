@@ -18,8 +18,8 @@ async function restoreCall() {
   if (document.pictureInPictureElement && document.exitPictureInPicture) await document.exitPictureInPicture().catch(() => undefined)
 }
 
-const statusLabel = computed(() => callStatus.value === 'ringing' ? '来电' : callStatus.value === 'calling' ? '等待接听' : '通话中')
-const statusCopy = computed(() => callStatus.value === 'ringing' ? 'TA 想和你说说话' : callStatus.value === 'calling' ? '正在呼叫对方，请稍候' : muted.value ? '麦克风已静音' : '连接稳定，正在通话')
+const statusLabel = computed(() => callStatus.value === 'ringing' ? '来电' : callStatus.value === 'calling' ? '等待接听' : callStatus.value === 'connecting' ? '连接中' : callStatus.value === 'failed' ? '连接失败' : '通话中')
+const statusCopy = computed(() => callStatus.value === 'ringing' ? 'TA 想和你说说话' : callStatus.value === 'calling' ? '正在等待对方接听' : callStatus.value === 'connecting' ? '正在连接音视频服务' : callStatus.value === 'failed' ? '请结束本次通话后重试' : muted.value ? '麦克风已静音' : '连接稳定，正在通话')
 </script>
 
 <template>
@@ -35,7 +35,7 @@ const statusCopy = computed(() => callStatus.value === 'ringing' ? 'TA 想和你
 
       <div class="call-screen-stage">
         <video v-if="callMode === 'video'" ref="remoteVideo" class="call-screen-remote" autoplay playsinline />
-        <div v-if="callMode === 'video'" class="call-screen-video-placeholder"><Video :size="30" /><span>{{ callStatus === 'connected' ? '等待视频画面' : '视频连接中' }}</span></div>
+        <div v-if="callMode === 'video'" class="call-screen-video-placeholder"><Video :size="30" /><span>{{ callStatus === 'connected' ? '等待视频画面' : callStatus === 'failed' ? '视频连接失败' : '视频连接中' }}</span></div>
         <div v-else class="call-screen-avatar-wrap" :class="{ ringing: callStatus === 'ringing' }">
           <span class="call-screen-avatar"><img v-if="partner?.avatarUrl" :src="partner.avatarUrl" alt="伴侣头像"><template v-else>{{ partner?.displayName?.slice(0, 1) || 'TA' }}</template></span>
           <i class="call-screen-ring" aria-hidden="true" />
@@ -58,7 +58,7 @@ const statusCopy = computed(() => callStatus.value === 'ringing' ? 'TA 想和你
           <button class="call-control call-control-danger" type="button" aria-label="结束通话" title="结束通话" @click="hangUp"><PhoneOff :size="22" /></button>
         </template>
       </footer>
-      <div v-if="callStatus === 'calling'" class="call-screen-progress"><LoaderCircle :size="14" />正在建立安全连接</div>
+      <div v-if="callStatus === 'calling' || callStatus === 'connecting'" class="call-screen-progress"><LoaderCircle :size="14" />{{ callStatus === 'calling' ? '正在等待对方接听' : '正在建立安全连接' }}</div>
       <div v-if="minimized" class="call-mini" role="status">
         <span class="call-mini-avatar"><img v-if="partner?.avatarUrl" :src="partner.avatarUrl" alt="伴侣头像"><template v-else>{{ partner?.displayName?.slice(0, 1) || 'TA' }}</template></span>
         <span class="call-mini-copy"><strong>{{ partner?.displayName || 'TA' }}</strong><small>{{ callMode === 'video' ? '视频通话' : '语音通话' }} · {{ statusLabel }}</small></span>

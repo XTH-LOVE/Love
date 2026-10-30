@@ -97,7 +97,7 @@ export function useSpaceStatus() {
       return false
     }
     services.call = { state: 'checking', detail: '正在请求 ZEGO Token 服务' }
-    const response = await withTimeout($supabase.functions.invoke('zego-token', { body: { roomId: 'status-' + profile.value.coupleId, userName: profile.value.displayName || 'Love小家' } }))
+    const response = await withTimeout($supabase.functions.invoke('zego-token', { body: { roomKind: 'call', canPublish: false } }))
     if (!response) { services.call = { state: 'error', detail: 'Token 服务请求超时' }; return false }
     if (response.error || !response.data?.token) { services.call = { state: 'error', detail: 'Token 服务未返回有效凭据' }; return false }
     services.call = { state: 'ok', detail: 'ZEGO Token 服务响应正常' }

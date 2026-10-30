@@ -381,6 +381,45 @@ export async function createVideoPoster(file: File, maxSide = 960): Promise<File
   } catch { return null } finally { URL.revokeObjectURL(sourceUrl) }
 }
 
+/** Generate an in-memory poster for an older remote video that has no stored poster path. */
+export async function createVideoPosterFromUrl(url: string, maxSide = 640): Promise<string> {
+  if (!import.meta.client || !url) return ''
+  const video = document.createElement('video')
+  video.crossOrigin = 'anonymous'
+  video.src = url
+  video.preload = 'metadata'
+  video.muted = true
+  video.playsInline = true
+  try {
+    await withTimeout(new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve()
+      video.onerror = () => reject(new Error('视频封面读取失败'))
+    }), 7000)
+    const duration = Number.isFinite(video.duration) ? video.duration : 0
+    video.currentTime = Math.min(0.2, duration > 0 ? duration / 3 : 0.2)
+    await withTimeout(new Promise<void>((resolve, reject) => {
+      video.onseeked = () => resolve()
+      video.onerror = () => reject(new Error('视频封面定位失败'))
+    }), 7000)
+    const sourceWidth = video.videoWidth || maxSide
+    const sourceHeight = video.videoHeight || maxSide
+    const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale))
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale))
+    const context = canvas.getContext('2d')
+    if (!context) return ''
+    context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.74))
+    return blob ? URL.createObjectURL(blob) : ''
+  } catch {
+    return ''
+  } finally {
+    video.removeAttribute('src')
+    video.load()
+  }
+}
+
 export function revealVideoFrame(event: Event) {
   const video = event.currentTarget as HTMLVideoElement
   const reveal = () => {

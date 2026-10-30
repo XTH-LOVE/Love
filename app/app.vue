@@ -2,25 +2,24 @@
 import '@fontsource-variable/manrope'
 import '@fontsource-variable/nunito-sans'
 import CallScreen from './components/CallScreen.vue'
+import HomePage from './components/HomePage.vue'
+import HeartAiView from './components/HeartAiView.vue'
+import ListenTogetherView from './components/ListenTogetherView.vue'
 import {
-  CalendarDays,
   Activity,
-  Check,
+  Calendar,
+  CalendarDays,
   ChevronRight,
   Heart,
   Home,
   Image,
   ListChecks,
-  MapPin,
   MessageCircleHeart,
-  Camera,
+  Music2,
   X,
-  Plus,
   Settings,
-  Sparkles,
   History,
   BrainCircuit,
-  PawPrint,
   Radio,
   StopCircle,
   Volume2,
@@ -31,6 +30,8 @@ import {
 } from '@lucide/vue'
 import { notifySystem, requestSystemAlerts } from './composables/useSystemAlerts'
 import { createMediaSignedUrl, refreshMediaElement, revealVideoFrame } from './composables/useMediaUrls'
+import { useGSAP } from './composables/useGSAP'
+import { useMotionSettings } from './composables/useMotionSettings'
 
 const navItems = [
   { label: '首页', icon: Home },
@@ -38,15 +39,20 @@ const navItems = [
   { label: '相册', icon: Image },
   { label: '清单', icon: ListChecks },
   { label: '纪念日', icon: CalendarDays },
+  { label: '日历', icon: Calendar },
   { label: '悄悄话', icon: MessageCircleHeart },
   { label: '心动AI', icon: BrainCircuit },
-  { label: '宠物小屋', icon: PawPrint },
+  { label: '一起听', icon: Music2 },
 ]
-const mobileNavItems = computed(() => navItems)
-
+const NAV_STORAGE_KEY = 'couplespace-active-nav'
+const NAV_LABELS = new Set(navItems.map(item => item.label))
 const activeNav = ref('首页')
 const pageError = ref('')
 const pageRenderKey = ref(0)
+const pageStageRef = ref<HTMLElement | null>(null)
+const { gsap, ScrollTrigger, context } = useGSAP()
+const { shouldAnimate } = useMotionSettings()
+let pageMotionContext: ReturnType<typeof context> | undefined
 const isOffline = ref(false)
 const timelineRef = ref<{ openCreate: () => void } | null>(null)
 const authVisible = ref(true)
@@ -56,20 +62,20 @@ const spaceStatusVisible = ref(false)
 const notificationVisible = ref(false)
 const firstRunIntroVisible = ref(false)
 const firstRunChecklistVisible = ref(false)
+const romanceGiftVisible = ref(false)
+const romanceGiftMode = ref<'opening' | 'story'>('opening')
+const futureMailboxVisible = ref(false)
+const voiceCapsuleVisible = ref(false)
+const easterEggVisible = ref(false)
 const chatVisible = ref(false)
 const messageToast = ref<{ sender: string; content: string } | null>(null)
 let messageToastTimer: ReturnType<typeof setTimeout> | undefined
-const coverPickerVisible = ref(false)
-const selectedCoverPath = ref('')
-const selectedCoverUrl = ref('')
-const displayedHeroPhoto = ref('')
-const heroPhotoShape = ref<'wide' | 'square' | 'portrait'>('wide')
 const { stage, profile, initialize, signOut } = useCoupleAuth()
 const { anniversaries, relationshipStart, loveDays, nextAnniversary, loadAnniversaries } = useAnniversaries()
 const { sync: syncAnniversaryReminders } = useAnniversaryReminders()
 const { memories, loadMemories } = useMemories()
 const { allPhotos, loadAlbums, subscribeAlbumPhotos, disconnectAlbumPhotos } = useAlbums()
-const { items: togetherItems, loadItems, toggleItem } = useTogetherList()
+const { items: togetherItems, loadItems } = useTogetherList()
 const { members, loadMembers, subscribeMembers, disconnectMembers } = useAccountManagement()
 const { partnerOnline, connectPresence, disconnectPresence } = useCouplePresence()
 const { messages, unreadCount, loadMessages, subscribe: subscribeMessages, markRead, disconnect: disconnectMessages } = useMessages()
@@ -77,8 +83,14 @@ const { callStatus, ensureChannel: ensureCallChannel, disconnectCall } = useCoup
 const { liveStatus, liveError, liveRemoteMuted, liveRemoteName, liveNeedsGesture, ensureLiveChannel, stopLive, dismissLive, resumeLiveAudio, disconnectLive } = useCoupleLiveMic()
 const { register: registerPushNotifications } = usePushNotifications()
 const { notifications, unreadCount: notificationUnreadCount, aiLoading: notificationAiLoading, refreshAiWorks, markRead: markNotificationRead, markAllRead: markAllNotificationsRead } = useNotificationCenter()
+const { validate: validateStoryShare } = useStoryShare()
 const { $supabase } = useNuxtApp()
+
+const selfMember = computed(() => members.value.find(m => m.id === profile.value?.id) || members.value[0])
+const partnerMember = computed(() => members.value.find(m => m.id !== profile.value?.id))
+
 let pairedBootstrapStarted = false
+let romanceOpeningTimer: ReturnType<typeof setTimeout> | undefined
 
 function settleWithin<T>(promise: Promise<T>, timeout = 7000) {
   return Promise.race([
@@ -86,47 +98,6 @@ function settleWithin<T>(promise: Promise<T>, timeout = 7000) {
     new Promise<T | undefined>(resolve => globalThis.setTimeout(() => resolve(undefined), timeout)),
   ])
 }
-
-const latestMemory = computed(() => memories.value[0] || null)
-const latestSharedMoment = computed(() => {
-  const photo = allPhotos.value[0]
-  if (!photo) return null
-  const memory = photo.source === 'memory'
-    ? memories.value.find(item => item.photos.some(itemPhoto => itemPhoto.path === photo.path || itemPhoto.url === photo.url))
-    : null
-  return {
-    photoUrl: photo.url,
-    date: photo.takenDate,
-    title: memory?.content.slice(0, 28) || photo.caption || photo.albumName || '新加入的共同照片',
-    description: memory?.content || photo.caption || `收录在「${photo.albumName || '我们的相册'}」中`,
-    location: memory?.location || '',
-    source: photo.source === 'memory' ? '时光记录' : '相册照片',
-  }
-})
-const homeHeroPhoto = computed(() => selectedCoverUrl.value || latestMemory.value?.photos[0]?.url || allPhotos.value[0]?.url || '')
-const homeHeroPath = computed(() => selectedCoverPath.value || latestMemory.value?.photos[0]?.path || allPhotos.value[0]?.path || '')
-const homeHeroLocation = computed(() => latestMemory.value?.photos[0]
-  ? latestMemory.value.location
-  : allPhotos.value[0]?.albumName || '')
-const homePlans = computed(() => togetherItems.value.slice(0, 3))
-const completedPlanCount = computed(() => togetherItems.value.filter(item => item.completed).length)
-const selfMember = computed(() => members.value.find(member => member.id === profile.value?.id) || members.value[0])
-const partnerMember = computed(() => members.value.find(member => member.id !== profile.value?.id))
-const coupleNames = computed(() => partnerMember.value ? `${selfMember.value?.displayName || profile.value?.displayName} 与 ${partnerMember.value.displayName}` : selfMember.value?.displayName || profile.value?.displayName || '我们的空间')
-const todayLabel = computed(() => new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }).format(new Date()))
-const relationshipLabel = computed(() => new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(`${relationshipStart.value}T12:00:00`)))
-const nextOccurrence = computed(() => nextAnniversary.value ? occurrence(nextAnniversary.value) : null)
-
-watch(homeHeroPhoto, value => {
-  if (!import.meta.client || !value) return
-  const image = new window.Image()
-  image.onload = () => {
-    const ratio = image.naturalWidth / image.naturalHeight
-    heroPhotoShape.value = ratio >= 1.4 ? 'wide' : ratio <= .82 ? 'portrait' : 'square'
-    displayedHeroPhoto.value = value
-  }
-  image.src = value
-}, { immediate: true })
 
 async function loadHomeData() {
   // Keep network stalls from blocking the shell. Each source can finish and
@@ -142,7 +113,6 @@ async function loadHomeData() {
     subscribeMembers(),
     subscribeAlbumPhotos(),
     syncAnniversaryReminders(anniversaries.value),
-    loadCoupleCover(),
     connectPresence(),
     loadMessages(),
     subscribeMessages(),
@@ -167,11 +137,46 @@ function completeFirstRunIntro() {
   if (import.meta.client) localStorage.setItem('couple-space-first-run-intro', '1')
   firstRunIntroVisible.value = false
   maybeShowFirstRunChecklist()
+  maybeShowRomanceExperience()
 }
 
 function completeFirstRunChecklist() {
   if (import.meta.client) localStorage.setItem('couple-space-first-run-complete', '1')
   firstRunChecklistVisible.value = false
+  maybeShowRomanceExperience()
+}
+
+function openRomanceExperience(mode: 'opening' | 'story' = 'story') {
+  romanceGiftMode.value = mode
+  romanceGiftVisible.value = true
+}
+
+function closeRomanceExperience() {
+  if (import.meta.client && romanceGiftMode.value === 'opening') localStorage.setItem(`couple-space-opening-letter-seen:${profile.value?.coupleId || 'demo'}`, '1')
+  romanceGiftVisible.value = false
+}
+
+function openFutureMailbox() { futureMailboxVisible.value = true }
+
+let sharedStoryHandled = false
+async function maybeOpenSharedStory() {
+  if (!import.meta.client || sharedStoryHandled || stage.value !== 'paired') return
+  const token = new URL(window.location.href).searchParams.get('story') || ''
+  if (!token) return
+  sharedStoryHandled = true
+  const valid = await validateStoryShare(token)
+  const cleanUrl = new URL(window.location.href)
+  cleanUrl.searchParams.delete('story')
+  window.history.replaceState({}, '', cleanUrl.toString())
+  if (valid) { if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); openRomanceExperience('story') }
+}
+
+function maybeShowRomanceExperience() {
+  if (!import.meta.client || stage.value !== 'paired' || firstRunIntroVisible.value || firstRunChecklistVisible.value || romanceGiftVisible.value) return
+  const key = `couple-space-opening-letter-seen:${profile.value?.coupleId || 'demo'}`
+  if (localStorage.getItem(key) === '1') return
+  if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer)
+  romanceOpeningTimer = setTimeout(() => openRomanceExperience('opening'), 900)
 }
 
 function openFirstPhotoUpload() {
@@ -195,49 +200,28 @@ async function reconnectSpaceServices() {
   ])
 }
 
-async function loadCoupleCover() {
-  const { $supabase } = useNuxtApp()
-  if (!$supabase || !profile.value?.coupleId) {
-    selectedCoverUrl.value = localStorage.getItem('couple-space-cover-url') || ''
-    return
-  }
-  const { data } = await $supabase.from('couples').select('cover_path').eq('id', profile.value.coupleId).maybeSingle()
-  selectedCoverPath.value = data?.cover_path || ''
-  if (!selectedCoverPath.value) { selectedCoverUrl.value = ''; return }
-  const matched = allPhotos.value.find(photo => photo.path === selectedCoverPath.value)
-  const coverPath = matched?.mediaType === 'video' ? (matched.videoPosterPath || matched.path) : selectedCoverPath.value
-  const coverBucket = (matched?.source === 'memory' || (!matched && !selectedCoverPath.value.includes('/album-media/') && !selectedCoverPath.value.startsWith('album-media/'))) ? 'memory-photos' : 'album-media'
-  selectedCoverUrl.value = await createMediaSignedUrl($supabase, coverPath, coverBucket, { width: 1400, height: 900, resize: 'cover', quality: 84 })
-}
-
-async function chooseCover(photo: { path: string; url: string; source?: 'album' | 'memory'; mediaType?: 'image' | 'video'; videoPosterPath?: string }) {
-  const { $supabase } = useNuxtApp()
-  selectedCoverPath.value = photo.path
-  const coverPath = photo.mediaType === 'video' ? (photo.videoPosterPath || photo.path) : photo.path
-  selectedCoverUrl.value = $supabase
-    ? await createMediaSignedUrl($supabase, coverPath, photo.source === 'memory' ? 'memory-photos' : 'album-media', { width: 1400, height: 900, resize: 'cover', quality: 84 })
-    : photo.url
-  if ($supabase && profile.value?.coupleId && photo.path) {
-    const { error } = await $supabase.from('couples').update({ cover_path: photo.path }).eq('id', profile.value.coupleId)
-    if (error) throw error
-  } else localStorage.setItem('couple-space-cover-url', photo.url)
-  coverPickerVisible.value = false
-}
-
 onMounted(async () => {
+  // Keep the selected workspace stable if an async feature causes the shell
+  // to be recreated. Music playback must never appear to send the user home.
+  const savedNav = localStorage.getItem(NAV_STORAGE_KEY)
+  if (savedNav && NAV_LABELS.has(savedNav)) activeNav.value = savedNav
   syncOnlineState()
   window.addEventListener('online', syncOnlineState)
   window.addEventListener('offline', syncOnlineState)
   if (localStorage.getItem('couple-space-first-run-intro') !== '1') firstRunIntroVisible.value = true
-  // Auth/session restoration should never leave a blank shell indefinitely on
-  // a slow network. The auth listener can still finish in the background.
-  await settleWithin(initialize(), 7000)
+  // Session restoration should never leave a blank shell indefinitely on a
+  // slow or unavailable network; show the auth flow when restoration fails.
+  // A rejected Supabase request used to abort this hook before appReady was
+  // set, leaving users on the infinite "正在打开我们的空间" screen.
+  await settleWithin(initialize().catch(() => undefined), 3000)
   authVisible.value = stage.value !== 'paired'
   if (stage.value === 'paired') {
     maybeShowFirstRunChecklist()
     startPairedBootstrap()
   }
   appReady.value = true
+  void maybeOpenSharedStory()
+  maybeShowRomanceExperience()
 })
 
 watch(stage, async value => {
@@ -245,6 +229,8 @@ watch(stage, async value => {
   if (value === 'paired') {
     maybeShowFirstRunChecklist()
     startPairedBootstrap()
+    void maybeOpenSharedStory()
+    maybeShowRomanceExperience()
   } else {
     pairedBootstrapStarted = false
     await disconnectCall()
@@ -267,13 +253,8 @@ watch(() => messages.value.length, (length, previousLength) => {
   if (messageToastTimer) clearTimeout(messageToastTimer)
   messageToastTimer = setTimeout(() => { messageToast.value = null }, 5000)
 })
-const latestSharedMedia = computed(() => allPhotos.value.filter(photo => photo.url).slice(0, 10))
-const firstRunHasMedia = computed(() => latestSharedMedia.value.length > 0)
-function revealHomeVideo(event:Event){const video=event.currentTarget as HTMLVideoElement;if(Number.isFinite(video.duration)&&video.duration>0&&video.currentTime===0)video.currentTime=Math.min(.15,video.duration/2)}
-function homeVideoReady(event: Event) { revealVideoFrame(event) }
-async function refreshHomeMedia(event: Event, path: string, bucket?: string, mediaType: 'image' | 'video' = 'image') { await refreshMediaElement(event, $supabase, path, bucket, mediaType === 'image' ? { width: 640, height: 640, resize: 'contain', quality: 68 } : undefined) }
-async function refreshHero(event: Event) { await refreshMediaElement(event, $supabase, homeHeroPath.value, homeHeroPath.value.includes('/album-media/') ? 'album-media' : 'memory-photos', { width: 1400, height: 900, resize: 'cover', quality: 84 }) }
-onBeforeUnmount(async () => { window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
+const firstRunHasMedia = computed(() => allPhotos.value.length > 0)
+onBeforeUnmount(async () => { pageMotionContext?.revert(); if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
 
 async function openChat() {
   messageToast.value = null
@@ -301,6 +282,34 @@ function openTimelineComposer() {
 
 function selectNav(label: string) {
   pageError.value = ''
+  if (label === '通知中心') {
+    notificationVisible.value = true
+    return
+  }
+  if (label === '彩蛋') {
+    easterEggVisible.value = true
+    return
+  }
+  if (label === '空间状态') {
+    spaceStatusVisible.value = true
+    return
+  }
+  if (label === '设置') {
+    accountVisible.value = true
+    return
+  }
+  if (label === '故事') {
+    openRomanceExperience('story')
+    return
+  }
+  if (label === '未来邮箱') {
+    futureMailboxVisible.value = true
+    return
+  }
+  if (label === '声音胶囊') {
+    voiceCapsuleVisible.value = true
+    return
+  }
   if (label === '悄悄话') chatVisible.value = false
   activeNav.value = label
 }
@@ -319,6 +328,82 @@ function retryPage() {
 function syncOnlineState() {
   if (import.meta.client) isOffline.value = !navigator.onLine
 }
+
+function scrollPageTop() {
+  if (!import.meta.client) return
+  window.scrollTo({ top: 0, behavior: shouldAnimate.value ? 'smooth' : 'auto' })
+}
+
+function animatePageEnter(element: Element, done: () => void) {
+  pageMotionContext?.revert()
+  pageMotionContext = undefined
+  if (!import.meta.client || !shouldAnimate.value || !gsap?.fromTo) {
+    done()
+    return
+  }
+  pageMotionContext = context(element, () => {
+    const introNodes = element.querySelectorAll('.topbar, .hero-section, .quote-stage, .timeline-header, .timeline-summary, .album-header, .album-filters, .style-panel, .heart-ai > header, .heart-ai > nav')
+    if (introNodes.length) {
+      gsap.fromTo(introNodes, { autoAlpha: 0, y: 18 }, {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.38,
+        ease: 'power2.out',
+        stagger: { each: 0.06, from: 'start' },
+        clearProps: 'opacity,visibility,transform',
+      })
+    }
+
+    const scrollNodes = element.querySelectorAll('.dashboard-grid > .panel, .timeline-entry, .photo-wall > button, .style-panel, .ann-list > article, .history > div > article')
+    if (!scrollNodes.length || !ScrollTrigger?.batch) return
+    gsap.set(scrollNodes, { autoAlpha: 0, y: 18 })
+    ScrollTrigger.batch(Array.from(scrollNodes), {
+      start: 'top 88%',
+      once: true,
+      interval: 0.08,
+      batchMax: () => window.innerWidth <= 650 ? 3 : 6,
+      onEnter: elements => gsap.to(elements, {
+        autoAlpha: 1,
+        y: 0,
+        duration: window.innerWidth <= 650 ? 0.3 : 0.42,
+        ease: 'power2.out',
+        stagger: 0.045,
+        overwrite: 'auto',
+        clearProps: 'opacity,visibility,transform',
+      }),
+    })
+  })
+  gsap.fromTo(element, { autoAlpha: 0, y: 14 }, {
+    autoAlpha: 1,
+    y: 0,
+    duration: 0.34,
+    ease: 'power2.out',
+    clearProps: 'opacity,visibility,transform',
+    onComplete: done,
+  })
+}
+
+function animatePageLeave(element: Element, done: () => void) {
+  pageMotionContext?.revert()
+  pageMotionContext = undefined
+  if (!import.meta.client || !shouldAnimate.value || !gsap?.to) {
+    done()
+    return
+  }
+  gsap.to(element, {
+    autoAlpha: 0,
+    y: -8,
+    duration: 0.18,
+    ease: 'power1.in',
+    onComplete: done,
+  })
+}
+
+watch(activeNav, () => {
+  if (import.meta.client) localStorage.setItem(NAV_STORAGE_KEY, activeNav.value)
+  if (!import.meta.client) return
+  requestAnimationFrame(scrollPageTop)
+})
 </script>
 
 <template>
@@ -329,7 +414,7 @@ function syncOnlineState() {
   <FirstRunOnboarding v-if="firstRunIntroVisible" phase="intro" @complete="completeFirstRunIntro" />
   <div v-if="!appReady" class="app-loading"><Heart :size="28" fill="currentColor" /><span>正在打开我们的空间</span></div>
   <AuthFlow v-else-if="authVisible" @complete="authVisible = false" />
-  <div v-else class="app-shell">
+  <div v-else class="app-shell" :class="{ 'motion-reduced': !shouldAnimate }">
     <NuxtRouteAnnouncer />
     <LoveSky />
     <div v-if="isOffline" class="offline-banner" role="status"><WifiOff :size="16" /><span>当前处于离线状态，恢复网络后会自动同步</span><button type="button" aria-label="重新检查网络" title="重新检查" @click="syncOnlineState"><RefreshCw :size="15" /></button></div>
@@ -375,115 +460,30 @@ function syncOnlineState() {
       </button>
     </aside>
 
-    <main v-if="activeNav === '首页'" class="main-content">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">{{ todayLabel }}</p>
-          <h1>晚上好，{{ coupleNames }}</h1>
-        </div>
-        <div class="topbar-actions"><button class="message-button glass-panel notification-trigger" type="button" aria-label="打开通知中心" title="通知中心" @click="notificationVisible = true; void refreshAiWorks()"><Bell :size="20"/><strong v-if="notificationUnreadCount" class="notification-badge">{{ notificationUnreadCount > 99 ? '99+' : notificationUnreadCount }}</strong></button><button class="message-button glass-panel" type="button" aria-label="查看空间状态" title="空间状态" @click="spaceStatusVisible=true"><Activity :size="20"/></button><button class="message-button glass-panel" type="button" aria-label="打开设置" title="设置" @click="accountVisible=true"><Settings :size="21"/></button></div>
-      </header>
-
-      <section class="hero-section" :class="[{ 'has-cover': displayedHeroPhoto }, `photo-${heroPhotoShape}`]" :style="displayedHeroPhoto ? { '--hero-image': `url('${displayedHeroPhoto}')` } : undefined" aria-labelledby="love-days-title">
-        <div class="hero-copy">
-          <div class="soft-label"><Heart :size="14" fill="currentColor" /> 我们在一起</div>
-          <LoveDuration id="love-days-title" :start="relationshipStart" />
-          <p>从 {{ relationshipLabel }} 开始，每一天都有了共同的名字。</p>
-          <button class="primary-button" type="button" @click="openTimelineComposer">
-            <Plus :size="18" /> 记录此刻
-          </button>
-        </div>
-        <div class="hero-photo" :class="{ empty: !displayedHeroPhoto }" :style="displayedHeroPhoto ? { '--photo-image': `url('${displayedHeroPhoto}')` } : undefined" role="img" :aria-label="displayedHeroPhoto ? '最新的共同照片' : '等待添加共同照片'">
-          <img v-if="displayedHeroPhoto" :src="displayedHeroPhoto" alt="情侣空间封面" @error="refreshHero">
-          <button class="cover-button glass-panel" type="button" @click="coverPickerVisible = true"><Camera :size="15" /> 选择封面</button>
-          <div class="photo-caption glass-panel">
-            <MapPin v-if="homeHeroLocation" :size="15" /> {{ homeHeroLocation || '第一张共同照片，等你们来记录' }}
-          </div>
-        </div>
-      </section>
-
-      <LoveQuoteCarousel />
-      <PetStreakWidget />
-
-      <section class="dashboard-grid">
-        <LoveLetterCard />
-        <article class="anniversary-panel panel">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">下一次见面的期待</p>
-              <h3>下一个特别的日子</h3>
-            </div>
-            <button class="icon-button" type="button" aria-label="查看所有纪念日" title="查看全部" @click="activeNav = '纪念日'">
-              <ChevronRight :size="20" />
-            </button>
-          </div>
-          <div class="date-display">
-            <div class="calendar-page">
-              <span>{{ nextOccurrence ? String(nextOccurrence.getMonth() + 1).padStart(2, '0') + '月' : '--' }}</span>
-              <strong>{{ nextOccurrence ? String(nextOccurrence.getDate()).padStart(2, '0') : '--' }}</strong>
-            </div>
-            <div>
-              <h4>{{ nextAnniversary?.title || '添加第一个纪念日' }}</h4>
-              <p>{{ nextAnniversary ? `还有 ${daysUntil(nextAnniversary)} 天` : '让重要日子不再错过' }}</p>
-            </div>
-          </div>
-          <div class="progress-track"><span /></div>
-        </article>
-
-        <article class="plans-panel panel">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">一起完成的小事</p>
-              <h3>今天一起完成</h3>
-            </div>
-            <span class="plan-count">{{ completedPlanCount }}/{{ togetherItems.length }}</span>
-          </div>
-          <div class="plan-list">
-            <button
-              v-for="plan in homePlans"
-              :key="plan.id"
-              class="plan-item"
-              :class="{ done: plan.completed }"
-              type="button"
-              @click="toggleItem(plan)"
-            >
-              <span class="check-box"><Check v-if="plan.completed" :size="14" /></span>
-              <span><strong>{{ plan.title }}</strong><small>{{ plan.plannedDate || (plan.note || '共同计划') }}</small></span>
-            </button>
-            <button v-if="!homePlans.length" class="empty-plan" type="button" @click="activeNav = '清单'"><Plus :size="16" /> 添加第一项共同计划</button>
-          </div>
-        </article>
-
-        <article class="memory-panel panel">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">刚刚留下的回忆</p>
-              <h3>最近的共同回忆</h3>
-            </div>
-            <button class="text-button" type="button" @click="activeNav = '时光'">查看时光</button>
-          </div>
-          <div v-if="latestSharedMedia.length" class="recent-media-grid"><button v-for="(media, mediaIndex) in latestSharedMedia" :key="media.id" type="button" @click="activeNav='相册'"><video v-if="media.mediaType==='video'" :src="media.url" muted playsinline preload="metadata" @loadedmetadata="homeVideoReady" @error="refreshHomeMedia($event, media.path, media.source === 'memory' ? 'memory-photos' : 'album-media')"/><img v-else :src="media.url" alt="最近共同回忆" :loading="mediaIndex < 4 ? 'eager' : 'lazy'" :fetchpriority="mediaIndex < 2 ? 'high' : 'low'" decoding="async" @error="refreshHomeMedia($event, media.path, media.source === 'memory' ? 'memory-photos' : 'album-media')"><span>{{media.takenDate}} · {{media.uploaderName}}</span></button></div>
-          <button v-else class="empty-memory" type="button" @click="activeNav = '相册'"><Plus :size="19" /><span><strong>还没有共同照片</strong><small>从相册或时光上传第一张照片</small></span></button>
-        </article>
-      </section>
-    </main>
+    <Transition mode="out-in" @enter="animatePageEnter" @leave="animatePageLeave">
+      <div ref="pageStageRef" :key="activeNav" class="page-stage">
+    <HomePage v-if="activeNav === '首页'" :navigate="selectNav" @timeline="openTimelineComposer" />
     <main v-else-if="activeNav === '时光'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyTimelineView ref="timelineRef" @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>时光轴暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '相册'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyAlbumView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>相册暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '清单'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyTogetherListView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>清单暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '纪念日'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyAnniversaryView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>纪念日暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '悄悄话'" class="main-content chat-main"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyChatPanel mode="page" @close="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>悄悄话暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
-     <main v-else-if="activeNav === '心动AI'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyHeartAiView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>心动 AI 暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
-     <main v-else-if="activeNav === '宠物小屋'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyPetHouseView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>宠物小屋暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
+     <main v-else-if="activeNav === '心动AI'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><HeartAiView @back="selectNav('首页')" /><template #error><div class="page-error"><h2>心动 AI 暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
+     <main v-else-if="activeNav === '日历'" class="main-content"><SharedCalendarView /></main>
+     <main v-else-if="activeNav === '一起听'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><ListenTogetherView /><template #error><div class="page-error"><h2>一起听暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else class="main-content" />
+      </div>
+    </Transition>
 
     <nav class="mobile-nav glass-panel" aria-label="手机主要导航">
       <button
-        v-for="item in mobileNavItems"
+        v-for="item in navItems"
         :key="item.label"
         class="mobile-nav-button"
         :class="{ active: activeNav === item.label }"
         type="button"
         @click.stop="selectNav(item.label)"
+        :aria-current="activeNav === item.label ? 'page' : undefined"
       >
         <component :is="item.icon" :size="21" />
         <span>{{ item.label }}</span>
@@ -491,19 +491,15 @@ function syncOnlineState() {
       </button>
     </nav>
 
-    <LazyAccountPanel v-if="accountVisible" @close="accountVisible = false" @logout="leaveSpace" @unlinked="handleUnlinked" @relationship-updated="loadHomeData" />
-    <LazyChatPanel v-if="chatVisible" mode="drawer" @close="chatVisible = false" />
-    <CallScreen v-if="callStatus !== 'idle'" :partner="partnerMember" @minimized="chatVisible = false" />
-    <LazySpaceStatusPanel v-if="spaceStatusVisible" @close="spaceStatusVisible = false" @reconnect="reconnectSpaceServices" />
-    <NotificationCenterPanel v-if="notificationVisible" :notifications="notifications" :unread-count="notificationUnreadCount" :loading="notificationAiLoading" @close="notificationVisible = false" @read="markNotificationRead" @read-all="markAllNotificationsRead" @navigate="navigateFromNotification" @refresh="refreshAiWorks" />
-    <div v-if="coverPickerVisible" class="cover-picker-overlay" @click.self="coverPickerVisible = false">
-      <section class="cover-picker">
-        <header><div><p class="eyebrow">首页封面</p><h2>选择首页封面</h2></div><button type="button" aria-label="关闭" @click="coverPickerVisible = false"><X :size="20" /></button></header>
-        <p>从你们已经上传的照片中选择一张，双方会看到相同封面。</p>
-        <div v-if="allPhotos.length" class="cover-photo-grid"><button v-for="photo in allPhotos" :key="photo.id" type="button" :class="{ selected: photo.path === selectedCoverPath }" @click="chooseCover(photo)"><img :src="photo.url" alt="可选封面"><span>{{ photo.albumName }}</span></button></div>
-        <div v-else class="cover-empty">相册中还没有照片，请先上传一张。</div>
-      </section>
-    </div>
+    <Transition name="layer" appear><LazyAccountPanel v-if="accountVisible" @close="accountVisible = false" @logout="leaveSpace" @unlinked="handleUnlinked" @relationship-updated="loadHomeData" /></Transition>
+    <Transition name="layer"><LazyChatPanel v-if="chatVisible" mode="drawer" @close="chatVisible = false" /></Transition>
+    <Transition name="layer"><CallScreen v-if="callStatus !== 'idle'" :partner="partnerMember" @minimized="chatVisible = false" /></Transition>
+    <Transition name="layer"><LazySpaceStatusPanel v-if="spaceStatusVisible" @close="spaceStatusVisible = false" @reconnect="reconnectSpaceServices" /></Transition>
+    <Transition name="layer"><NotificationCenterPanel v-if="notificationVisible" :notifications="notifications" :unread-count="notificationUnreadCount" :loading="notificationAiLoading" @close="notificationVisible = false" @read="markNotificationRead" @read-all="markAllNotificationsRead" @navigate="navigateFromNotification" @refresh="refreshAiWorks" /></Transition>
+    <Transition name="layer"><RomanceGiftExperience v-if="romanceGiftVisible" :mode="romanceGiftMode" @close="closeRomanceExperience" /></Transition>
+    <Transition name="layer"><FutureMailboxPanel v-if="futureMailboxVisible" @close="futureMailboxVisible = false" /></Transition>
+    <Transition name="layer"><VoiceCapsulePanel v-if="voiceCapsuleVisible" @close="voiceCapsuleVisible = false" /></Transition>
+    <Transition name="layer"><EasterEggPanel v-if="easterEggVisible" @close="easterEggVisible = false" /></Transition>
   </div>
 </template>
 
@@ -547,6 +543,14 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
     var(--bg);
 }
 .main-content, .mobile-nav { position: relative; z-index: 1; }
+.page-stage { position: relative; min-height: 1px; will-change: transform, opacity; }
+.page-stage-enter-active, .page-stage-leave-active { pointer-events: none; }
+.layer-enter-active, .layer-leave-active { transition: opacity .22s ease; }
+.layer-enter-from, .layer-leave-to { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .page-stage { will-change: auto; }
+  .layer-enter-active, .layer-leave-active { transition: none; }
+}
 .page-error { display:grid;place-items:center;align-content:center;min-height:70vh;padding:30px;text-align:center; }
 .page-error h2 { margin:0;color:#4c2e56; }
 .page-error p { max-width:560px;color:#a24f72;font-size:11px;overflow-wrap:anywhere; }
@@ -671,7 +675,7 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .memory-content { display: grid; grid-template-columns: 190px 1fr; gap: 24px; align-items: center; margin-top: 20px; }
 .memory-photo { aspect-ratio: 16 / 9; border-radius: 18px; background: url('https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=800&q=82') center/cover; }
 .memory-photo.empty { background: var(--lavender-soft); }
-.recent-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.recent-media-grid button{position:relative;overflow:hidden;aspect-ratio:16/9;padding:0;border:0;border-radius:16px;background:#eee5f1}.recent-media-grid img,.recent-media-grid video{display:block;width:100%;height:100%;object-fit:cover}.recent-media-grid span{position:absolute;right:7px;bottom:7px;left:7px;padding:6px 8px;border-radius:9px;background:rgba(41,31,46,.52);color:#fff;font-size:8px;text-align:left}
+.recent-media-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.recent-media-grid button{position:relative;overflow:hidden;aspect-ratio:16/9;padding:0;border:0;border-radius:16px;background:#eee5f1}.recent-media-grid img,.recent-media-grid video{display:block;width:100%;height:100%;object-fit:cover}.recent-media-grid span{position:absolute;right:7px;bottom:7px;left:7px;padding:6px 8px;border-radius:9px;background:rgba(41,31,46,.52);color:#fff;font-size:8px;text-align:left}.recent-video-mark{position:absolute;top:10px;left:10px;padding:4px;border-radius:8px;background:rgba(47,31,58,.62);color:#fff}
 .memory-copy > span { color: var(--pink); font-size: 10px; font-weight: 750; }
 .memory-copy h4 { margin-top: 6px; }
 .memory-copy p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.75; }
@@ -702,9 +706,10 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
   .hero-section { grid-template-columns: 1fr 1fr; }
   .hero-copy { padding: 36px 28px; }
   .hero-copy h2 strong { font-size: 56px; }
-  .mobile-nav { position: fixed; z-index: 30; right: 14px; bottom: max(12px, env(safe-area-inset-bottom)); left: 14px; display: grid; grid-template-columns: repeat(8, 1fr); align-items: center; height: 72px; padding: 8px; border-radius: 24px; }
-  .mobile-nav-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; height: 52px; padding: 4px 2px; border: 0; border-radius: 15px; background: transparent; color: #9991a2; }
-  .mobile-nav-button span { font-size: 9px; font-weight: 700; }
+  .mobile-nav { position: fixed; z-index: 30; right: 14px; bottom: max(12px, env(safe-area-inset-bottom)); left: 14px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); align-items: center; height: 72px; padding: 8px; border-radius: 24px; }
+  .mobile-nav-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 52px; height: 52px; padding: 3px 1px; border: 0; border-radius: 15px; background: transparent; color: #9991a2; }
+  .mobile-nav-button svg { width: 18px; height: 18px; flex: 0 0 auto; }
+  .mobile-nav-button span { max-width: 100%; overflow: hidden; font-size: 9px; font-weight: 700; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-nav-button.active { color: var(--lavender-deep); background: var(--lavender-soft); }
   .mobile-add { position: absolute; right: 10px; top: -52px; display: grid; place-items: center; width: 45px; height: 45px; border: 4px solid var(--bg); border-radius: 50%; background: var(--ink); color: #fff; box-shadow: 0 10px 22px rgba(51,47,58,.2); }
 }
@@ -766,8 +771,8 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
   .hero-section{min-height:560px}.hero-copy{padding:24px 19px 26px}.soft-label{font-size:10px}.hero-copy>p{font-size:11px!important;line-height:1.65}
   .quote-copy p{font-size:16px!important}
   .panel{padding:18px;border-radius:20px}.section-heading h3{font-size:15px}
-  .mobile-nav{right:max(10px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));left:max(10px,env(safe-area-inset-left));height:66px;padding:6px;border-radius:21px}
-  .mobile-nav-button{height:48px}.mobile-nav-button span{font-size:8px}
+  .mobile-nav{right:max(10px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));left:max(10px,env(safe-area-inset-left));height:66px;padding:5px;border-radius:21px}
+  .mobile-nav-button{height:48px;gap:1px}.mobile-nav-button svg{width:17px;height:17px}.mobile-nav-button span{font-size:8px}
   .cover-picker-overlay,.account-overlay{padding-top:env(safe-area-inset-top)}
   .cover-picker,.account-panel{max-height:calc(100dvh - env(safe-area-inset-top));}
   .main-content,.app-shell>main{padding-bottom:calc(34px + env(safe-area-inset-bottom))}
@@ -825,15 +830,123 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .app-shell :is(.memory-editor,.album-modal,.item-editor,.ann-editor) :is(.save-button,.confirm,.save) { border-radius: 9px!important; background: #53405a!important; }
 @media(max-width:650px){.app-shell{background:#f7f5f8}.glass-panel{backdrop-filter:none;-webkit-backdrop-filter:none}.hero-section{min-height:0;border-radius:15px}.hero-photo{min-height:178px;margin-left:0}.hero-copy{padding:24px 19px 26px}.panel{border-radius:14px}.mobile-nav{border-radius:14px;box-shadow:0 6px 20px rgba(48,37,54,.1)}.mobile-nav-button{border-radius:9px}.mobile-nav-button.active{background:#eee7f0;color:#583d60}}
 </style>
+
 <style>
-/* Final home-cover rules: keep the real photo visible for square and portrait uploads. */
-.hero-photo>img{object-position:center!important;transition:opacity .28s ease,transform .28s ease!important}
-.hero-section.photo-square .hero-photo>img{inset:7%!important;width:86%!important;height:86%!important;object-fit:contain!important;object-position:center!important}
-.hero-section.photo-portrait .hero-photo>img{inset:5% 16%!important;width:68%!important;height:90%!important;object-fit:contain!important;object-position:center!important}
-.hero-section.photo-square .hero-photo,.hero-section.photo-portrait .hero-photo{background:linear-gradient(135deg,rgba(219,191,243,.58),rgba(255,210,231,.56),rgba(190,221,245,.48))!important}
-.hero-photo.empty::before{display:none!important}.hero-photo.empty::after{background:linear-gradient(135deg,rgba(245,228,252,.25),rgba(255,220,237,.2))!important}
-@media(max-width:650px){.hero-section.photo-square .hero-photo>img{inset:6%!important;width:88%!important;height:88%!important}.hero-section.photo-portrait .hero-photo>img{inset:5% 22%!important;width:56%!important;height:90%!important}}
+/* Shared ambient layer: every page floats above the same moving hearts and stars. */
+.app-shell {
+  background:
+    radial-gradient(circle at 82% 4%, rgba(255, 163, 211, .48), transparent 25%),
+    radial-gradient(circle at 10% 88%, rgba(161, 192, 247, .32), transparent 28%),
+    linear-gradient(135deg, rgba(239, 219, 250, .82), rgba(255, 237, 246, .74) 52%, rgba(219, 239, 250, .78)) !important;
+}
+
+.app-shell::before {
+  background: linear-gradient(135deg, rgba(255,255,255,.36), transparent 42%, rgba(255,255,255,.2)) !important;
+}
+
+.app-shell :is(
+  .sidebar,
+  .mobile-nav,
+  .topbar .message-button,
+  .page-stage .panel,
+  .page-stage .glass-panel,
+  .page-stage .quote-stage,
+  .page-stage .pet-stats article,
+  .page-stage .style-panel,
+  .page-stage .heart-ai,
+  .page-stage .workspace,
+  .page-stage .history,
+  .page-stage .pet-scene,
+  .page-stage .status-panel,
+  .page-stage .network-card,
+  .page-stage .upload-card,
+  .page-stage .identity-card
+) {
+  border-color: rgba(255, 255, 255, .72) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.62), rgba(255,239,250,.38)) !important;
+  box-shadow: 0 18px 44px rgba(88, 43, 105, .13), inset 0 1px 0 rgba(255,255,255,.86) !important;
+  backdrop-filter: blur(20px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(135%) !important;
+}
+
+.app-shell :is(.page-stage .pet-scene) {
+  overflow: hidden;
+}
+
+.app-shell :is(.page-stage .hero-section, .page-stage .pet-scene) {
+  isolation: isolate;
+}
+
+.app-shell :is(
+  .page-stage .hero-section,
+  .page-stage .heart-ai,
+  .page-stage .pet-house-view,
+  .page-stage .album-view,
+  .page-stage .timeline-view,
+  .page-stage .list-view,
+  .page-stage .ann-view
+) {
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell .page-stage :is(
+  .maker,
+  .result-body,
+  .history article,
+  .answers article,
+  .species-options button,
+  .skin-options button,
+  .accessory-options button
+) {
+  background: rgba(255,255,255,.48) !important;
+  border-color: rgba(255,255,255,.7) !important;
+  backdrop-filter: blur(14px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(125%) !important;
+}
+
+.app-shell .page-stage :is(.timeline-summary, .progress-panel, .love-counter) {
+  background: linear-gradient(125deg, rgba(222,194,250,.62), rgba(255,205,228,.58), rgba(191,225,249,.5)) !important;
+}
+
+.app-shell.motion-reduced :is(
+  .love-piece,
+  .pet-big-avatar,
+  .pet-glow,
+  .pet-heart,
+  .reward-lamp,
+  .reward-moon-sofa
+) {
+  animation: none !important;
+}
+
+@media (max-width: 650px) {
+  .app-shell :is(
+    .sidebar,
+    .mobile-nav,
+    .topbar .message-button,
+    .page-stage .panel,
+    .page-stage .glass-panel,
+    .page-stage .quote-stage,
+    .page-stage .pet-stats article,
+    .page-stage .style-panel,
+    .page-stage .heart-ai,
+    .page-stage .workspace,
+    .page-stage .history,
+    .page-stage .pet-scene,
+    .page-stage .status-panel,
+    .page-stage .network-card,
+    .page-stage .upload-card,
+    .page-stage .identity-card
+  ) {
+    background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(255,240,249,.5)) !important;
+    backdrop-filter: blur(12px) saturate(125%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(125%) !important;
+  }
+}
 </style>
+
+
 <style>
 /* Chat is a fixed workspace: only the message list should scroll. */
 .chat-main{height:calc(100vh - 52px);min-height:0!important;overflow:hidden!important;padding-bottom:0!important}
@@ -854,20 +967,7 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 <style>
 .live-status-capsule{position:fixed;z-index:80;top:20px;left:50%;display:flex;align-items:center;gap:9px;min-width:245px;max-width:min(360px,calc(100vw - 28px));padding:9px 10px;border:1px solid rgba(255,255,255,.84);border-radius:18px;background:linear-gradient(135deg,rgba(255,247,255,.9),rgba(250,226,247,.84));box-shadow:0 14px 35px rgba(81,44,93,.18);backdrop-filter:blur(18px) saturate(130%);transform:translateX(-50%)}.live-status-capsule.broadcasting{background:linear-gradient(135deg,rgba(236,218,255,.94),rgba(255,220,237,.9))}.live-status-icon{display:grid;place-items:center;width:29px;height:29px;border-radius:10px;background:rgba(255,255,255,.7);color:#a34e94}.live-status-copy{min-width:0;flex:1}.live-status-copy strong,.live-status-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.live-status-copy strong{color:#603769;font-size:11px}.live-status-copy small{margin-top:2px;color:#927b98;font-size:9px}.live-status-capsule>button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:10px;background:rgba(255,255,255,.68);color:#7c4b88;cursor:pointer}.live-status-error{position:fixed;z-index:80;top:75px;left:50%;max-width:min(360px,calc(100vw - 28px));margin:0;transform:translateX(-50%);color:#b64f76;font-size:10px;text-align:center}.live-status-capsule~.live-status-error{margin-top:0}@media(max-width:650px){.live-status-capsule{top:max(10px,env(safe-area-inset-top));min-width:0;width:calc(100vw - 28px);border-radius:16px}.live-status-error{top:68px}}
 </style>
-<style>
-/* Final overflow guard for portrait and panoramic uploads. */
-.hero-section{height:clamp(420px,58vw,560px)!important;min-height:0!important;overflow:hidden!important;contain:paint}
-.hero-photo{height:100%!important;min-height:0!important;max-height:100%!important;overflow:hidden!important}
-.hero-photo>img{max-width:100%!important;max-height:100%!important;object-fit:cover!important}
-@media(max-width:650px){.hero-section{height:auto!important;min-height:560px!important}.hero-photo{height:190px!important;min-height:190px!important}.hero-copy{min-height:370px!important}}
-</style>
-<style>
-/* Guard the home hero against very tall uploads. The image stays inside a stable stage. */
-.hero-section{height:clamp(420px,58vw,560px);min-height:0;overflow:hidden;contain:paint}
-.hero-photo{position:relative;min-width:0;height:100%;min-height:0;overflow:hidden}
-.hero-photo>img{max-width:100%;max-height:100%;object-fit:cover}
-@media(max-width:650px){.hero-section{height:auto;min-height:560px!important}.hero-copy{min-height:370px}.hero-photo{height:190px;min-height:190px!important}}
-</style>
+
 <style>
 /* Romantic luxe layer: jewel-color light, layered glass, and photo-led depth. */
 :root { --luxe-plum:#59255f; --luxe-orchid:#9a58d5; --luxe-rose:#ec6fa7; --luxe-sky:#79b9ed; --luxe-pearl:rgba(255,250,255,.76); }
@@ -887,4 +987,118 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .hero-section.has-cover .hero-copy{background:linear-gradient(110deg,rgba(255,250,255,.9),rgba(255,237,248,.74) 78%,rgba(255,237,248,.38))!important}
 .hero-section.has-cover .hero-photo{background-image:none!important}
 @media(max-width:650px){.hero-section.has-cover{background-image:linear-gradient(145deg,#d9c0f1 0%,#f8d2e2 100%)!important}.hero-section.has-cover .hero-copy{background:linear-gradient(145deg,rgba(255,250,255,.92),rgba(255,237,248,.78))!important}.page-back{display:none!important}.offline-banner{top:max(8px,env(safe-area-inset-top));width:calc(100vw - 24px)}}
+</style>
+
+<style>
+/* Final pass must follow the legacy theme overrides above. */
+.app-shell {
+  background:
+    radial-gradient(circle at 82% 4%, rgba(255, 163, 211, .48), transparent 25%),
+    radial-gradient(circle at 10% 88%, rgba(161, 192, 247, .32), transparent 28%),
+    linear-gradient(135deg, rgba(239, 219, 250, .82), rgba(255, 237, 246, .74) 52%, rgba(219, 239, 250, .78)) !important;
+}
+
+.app-shell :is(
+  .sidebar,
+  .mobile-nav,
+  .topbar .message-button,
+  .page-stage .panel,
+  .page-stage .glass-panel,
+  .page-stage .quote-stage,
+  .page-stage .pet-stats article,
+  .page-stage .style-panel,
+  .page-stage .heart-ai,
+  .page-stage .workspace,
+  .page-stage .history,
+  .page-stage .pet-scene,
+  .page-stage .memory-card,
+  .page-stage .items-list article,
+  .page-stage .ann-list article,
+  .page-stage .timeline-summary,
+  .page-stage .progress-panel,
+  .page-stage .love-counter
+) {
+  border-color: rgba(255, 255, 255, .72) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.62), rgba(255,239,250,.38)) !important;
+  box-shadow: 0 18px 44px rgba(88, 43, 105, .13), inset 0 1px 0 rgba(255,255,255,.86) !important;
+  backdrop-filter: blur(18px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(130%) !important;
+}
+
+.app-shell :is(.page-stage .hero-section, .page-stage .pet-scene) {
+  isolation: isolate;
+}
+
+.app-shell .page-stage :is(
+  .maker,
+  .result-body,
+  .history article,
+  .answers article,
+  .species-options button,
+  .skin-options button,
+  .accessory-options button
+) {
+  background: rgba(255,255,255,.48) !important;
+  border-color: rgba(255,255,255,.7) !important;
+  backdrop-filter: blur(12px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(125%) !important;
+}
+
+.app-shell.motion-reduced :is(
+  .love-piece,
+  .pet-big-avatar,
+  .pet-glow,
+  .pet-heart,
+  .reward-lamp,
+  .reward-moon-sofa
+) {
+  animation: none !important;
+}
+
+@media (max-width: 650px) {
+  .app-shell :is(
+    .sidebar,
+    .mobile-nav,
+    .topbar .message-button,
+    .page-stage .panel,
+    .page-stage .glass-panel,
+    .page-stage .quote-stage,
+    .page-stage .pet-stats article,
+    .page-stage .style-panel,
+    .page-stage .heart-ai,
+    .page-stage .workspace,
+    .page-stage .history,
+    .page-stage .pet-scene,
+    .page-stage .memory-card,
+    .page-stage .items-list article,
+    .page-stage .ann-list article,
+    .page-stage .timeline-summary,
+    .page-stage .progress-panel,
+    .page-stage .love-counter
+  ) {
+    background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(255,240,249,.5)) !important;
+    backdrop-filter: blur(10px) saturate(125%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(125%) !important;
+  }
+}
+
+.app-shell .page-stage .hero-section:not(.has-cover) {
+  background: linear-gradient(128deg, rgba(215,180,251,.68), rgba(246,179,211,.58) 48%, rgba(169,213,246,.52)) !important;
+}
+
+.app-shell .page-stage .pet-scene {
+  background: linear-gradient(145deg, rgba(216,185,239,.72), rgba(246,206,222,.58) 54%, rgba(196,217,243,.52)) !important;
+}
+
+.app-shell .page-stage .pet-scene.scene-pink {
+  background: linear-gradient(145deg, rgba(247,191,211,.72), rgba(245,212,225,.58) 54%, rgba(216,200,240,.52)) !important;
+}
+
+.app-shell .page-stage .pet-scene.scene-mint {
+  background: linear-gradient(145deg, rgba(185,230,217,.72), rgba(225,240,223,.58) 54%, rgba(200,216,238,.52)) !important;
+}
+
+.app-shell .page-stage .pet-scene.scene-night {
+  background: linear-gradient(145deg, rgba(102,114,184,.78), rgba(139,116,187,.66) 54%, rgba(52,59,117,.68)) !important;
+}
 </style>

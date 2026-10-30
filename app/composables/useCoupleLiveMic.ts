@@ -29,6 +29,10 @@ function readableError(error: any, fallback: string) {
   const code = extractZegoErrorCode(error)
   const zegoMessage = zegoErrorMessage(code)
   if (zegoMessage) return zegoMessage
+  const mediaName = String(error?.name || '')
+  if (mediaName === 'NotAllowedError' || mediaName === 'PermissionDeniedError') return '浏览器没有麦克风权限。请在地址栏网站设置中允许麦克风后重试。'
+  if (mediaName === 'NotFoundError' || mediaName === 'DevicesNotFoundError') return '没有检测到可用的麦克风，请连接或启用麦克风后重试。'
+  if (mediaName === 'NotReadableError' || mediaName === 'TrackStartError') return '麦克风可能正被其他应用占用，请关闭其他通话或录音软件后重试。'
   const message = String(error?.message || error?.msg || '').toLowerCase()
   if (code === 1102026 || message.includes('cancel login')) return 'ZEGO 登录被取消，上一条连接正在释放，请等待 1 秒后重试。'
   if (typeof error === 'string' && error.trim()) return error
@@ -90,11 +94,9 @@ export function useCoupleLiveMic() {
     if (status !== 'ok') throw new Error(`开麦信令发送失败（${status || 'unknown'}）`)
   }
 
-  async function getToken(targetRoom: string) {
+  async function getToken(canPublish: boolean) {
     if (!$supabase) throw new Error('Supabase 尚未配置')
-    const { data, error } = await $supabase.functions.invoke('zego-token', {
-      body: { roomId: targetRoom, userName: profile.value?.displayName || 'Love小家' },
-    })
+    const { data, error } = await $supabase.functions.invoke('zego-token', { body: { roomKind: 'live', canPublish } })
     if (error) {
       let detail = error.message || 'ZEGO Token 获取失败'
       const response = (error as any).context
@@ -108,7 +110,7 @@ export function useCoupleLiveMic() {
       throw new Error(detail)
     }
     if (data?.error) throw new Error(String(data.error))
-    return validateZegoAuth({ ...data, roomId: String(data?.roomId || targetRoom) }, Number(config.public.zegoAppId || 0))
+    return validateZegoAuth({ ...data, roomId: String(data?.roomId || '') }, Number(config.public.zegoAppId || 0))
   }
 
   async function ensureEngine(appId: number) {
@@ -156,7 +158,7 @@ export function useCoupleLiveMic() {
     const userId = String(profile.value?.id || '').trim()
     if (!userId) throw new Error('当前账号身份尚未加载完成，请刷新页面后再试')
     const targetRoom = currentRoom()
-    const auth = await getToken(targetRoom)
+    const auth = await getToken(publish)
     if (!Number.isFinite(auth.appId) || auth.appId <= 0) throw new Error('ZEGO AppID 无效')
     await ensureEngine(auth.appId)
     roomId = auth.roomId
@@ -201,7 +203,7 @@ export function useCoupleLiveMic() {
   async function ensureLiveChannel() {
     if (demoMode.value || !$supabase || !profile.value?.coupleId) return
     if (channelReady) return channelReady
-    signalChannel = $supabase.channel(`zego-live:${profile.value.coupleId}`, { config: { broadcast: { self: false, ack: true } } })
+    signalChannel = $supabase.channel(`zego-live:${profile.value.coupleId}`, { config: { private: true, broadcast: { self: false, ack: true } } })
       .on('broadcast', { event: 'live-start' }, ({ payload }: any) => {
         if (payload?.senderId === profile.value?.id) return
         void beginListening(payload)
@@ -216,9 +218,16 @@ export function useCoupleLiveMic() {
         liveRemoteMuted.value = Boolean(payload?.muted)
       })
     channelReady = new Promise<void>((resolve, reject) => {
-      signalChannel.subscribe((status: string) => {
+      signalChannel.subscribe((status: string, error?: Error) => {
         if (status === 'SUBSCRIBED') resolve()
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') reject(new Error('开麦信令连接失败'))
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.error('[CoupleSpace] ZEGO live signal subscription failed', {
+            status,
+            error: error?.message,
+            topic: `zego-live:${profile.value?.coupleId || ''}`,
+          })
+          reject(new Error(`开麦信令连接失败（${status}）。请确认 Supabase Realtime 已启用私有频道，并检查 realtime.messages 的 zego-live 权限。`))
+        }
       })
     }).catch(async error => {
       const failedChannel = signalChannel

@@ -28,3 +28,6 @@ function formatDate(date:string){if(!date)return'';return new Intl.DateTimeForma
 <style scoped>
 @media(max-width:650px){.editor-overlay{padding-top:env(safe-area-inset-top)}.item-editor{max-height:calc(100dvh - env(safe-area-inset-top))}.list-header h1{font-size:23px!important}}
 </style>
+<style scoped>
+.items-list article { content-visibility: auto; contain-intrinsic-size: 84px 120px; }
+</style>

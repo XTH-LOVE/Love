@@ -33,3 +33,16 @@ firebase-service-account.json
 infra/coturn/.env
 infra/coturn/certs/*
 !infra/coturn/certs/.gitkeep
+
+# Deploy artifacts
+*.apk
+deploy/
+
+# OSS upload scripts (contain credentials)
+scripts/oss-upload*.py
+
+# Local config and screenshots
+.nuxtrc
+.qoder/
+.local/
+landing-page-*

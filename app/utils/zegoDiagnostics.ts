@@ -17,6 +17,8 @@ export function extractZegoErrorCode(error: any): number {
 }
 
 export function zegoErrorMessage(code: number): string {
+  if (code === 1001004) return 'ZEGO AppID 鉴权失败：请确认 ZEGO 控制台中的 AppID 与网页配置一致，并确认该项目已启用当前音视频服务。旧项目若仍区分测试环境和正式环境，也要使用匹配的环境。'
+  if (code === 1001005) return 'ZEGO AppSign 鉴权失败：请确认控制台 AppSign 与项目配置一致。当前 Token 模式仍需检查 ZEGO AppID 和项目环境。'
   if (code === 1100001) return 'ZEGO 缺少 Token：请部署 zego-token Edge Function，并配置 ZEGO_APP_ID 与 ZEGO_SERVER_SECRET。不要把 AppSign 当作 Token。'
   if (code === 1102016) return 'ZEGO Token 无效或已过期：请确认 Edge Function 使用的 AppID 与网页配置一致，并重新部署 Token Function。'
   return code ? `ZEGO 通话失败（错误码 ${code}）` : ''

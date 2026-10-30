@@ -1,12 +1,11 @@
 import { daysUntil, useAnniversaries } from './useAnniversaries'
-import { useCouplePet } from './useCouplePet'
 import { useHeartAi, type AiSavedWork } from './useHeartAi'
 import { useMediaUploadQueue, type UploadJob } from './useMediaUploadQueue'
 import { useMessages } from './useMessages'
 import type { Component } from 'vue'
 
-export type NotificationType = 'message' | 'anniversary' | 'streak' | 'pet' | 'ai' | 'upload'
-export type NotificationTarget = '首页' | '悄悄话' | '纪念日' | '宠物小屋' | '心动AI' | '相册' | '时光'
+export type NotificationType = 'message' | 'anniversary' | 'ai' | 'upload'
+export type NotificationTarget = '首页' | '悄悄话' | '纪念日' | '心动AI' | '相册' | '时光'
 export type AppNotification = {
   id: string
   type: NotificationType
@@ -60,7 +59,6 @@ export function useNotificationCenter() {
   const { profile } = useCoupleAuth()
   const { messages } = useMessages()
   const { anniversaries } = useAnniversaries()
-  const { pet, streak, todayActionCount } = useCouplePet()
   const { loadWorks } = useHeartAi()
   const { jobs } = useMediaUploadQueue()
 
@@ -100,15 +98,6 @@ export function useNotificationCenter() {
         const id = `anniversary:${event.id}:${new Date().getFullYear()}`
         result.push({ id, type: 'anniversary', title: event.title, body: daysUntil(event) === 0 ? '就是今天，记得给 TA 一个拥抱。' : `还有 ${daysUntil(event)} 天，一起期待这个特别的日子。`, createdAt: new Date().toISOString(), target: '纪念日', read: isRead(id) })
       })
-
-    if (streak.value && !todayActionCount.value) {
-      const id = `streak:${new Date().toISOString().slice(0, 10)}`
-      result.push({ id, type: 'streak', title: '今天别忘了续火花', body: `已经连续 ${streak.value.currentDays} 天，和 TA 完成一次互动就能延续。`, createdAt: new Date().toISOString(), target: '宠物小屋', read: isRead(id) })
-    }
-    if (pet.value && (pet.value.mood < 45 || pet.value.hunger < 35)) {
-      const id = `pet:${new Date().toISOString().slice(0, 10)}`
-      result.push({ id, type: 'pet', title: `${pet.value.name} 想你了`, body: pet.value.hunger < 35 ? '小屋里的宠物有点饿，去喂它一下吧。' : '宠物的心情有点低落，去陪它玩一会儿吧。', createdAt: pet.value.updatedAt, target: '宠物小屋', read: isRead(id) })
-    }
 
     aiWorks.value.slice(0, 4).forEach(work => {
       const id = `ai:${work.id}`
