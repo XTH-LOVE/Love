@@ -1,6 +1,7 @@
 import { notifySystem } from './useSystemAlerts'
 import { hideNativeCallOverlay, showNativeCallOverlay, startNativeCallService, stopNativeCallService } from './useAndroidCallControls'
 import { extractZegoErrorCode, validateZegoAuth, zegoErrorMessage } from '~/utils/zegoDiagnostics'
+import { realtimeErrorDetail, syncRealtimeAuth } from '~/utils/realtimeAuth'
 
 export type LiveMicStatus = 'idle' | 'broadcasting' | 'listening'
 
@@ -203,33 +204,38 @@ export function useCoupleLiveMic() {
   async function ensureLiveChannel() {
     if (demoMode.value || !$supabase || !profile.value?.coupleId) return
     if (channelReady) return channelReady
-    signalChannel = $supabase.channel(`zego-live:${profile.value.coupleId}`, { config: { private: true, broadcast: { self: false, ack: true } } })
-      .on('broadcast', { event: 'live-start' }, ({ payload }: any) => {
-        if (payload?.senderId === profile.value?.id) return
-        void beginListening(payload)
+    const setup = (async () => {
+      await syncRealtimeAuth($supabase)
+      signalChannel = $supabase.channel(`zego-live:${profile.value!.coupleId}`, { config: { private: true, broadcast: { self: false, ack: true } } })
+        .on('broadcast', { event: 'live-start' }, ({ payload }: any) => {
+          if (payload?.senderId === profile.value?.id) return
+          void beginListening(payload)
+        })
+        .on('broadcast', { event: 'live-stop' }, ({ payload }: any) => {
+          if (payload?.senderId === profile.value?.id) return
+          ignoreCurrentLive = false
+          cleanupRoom()
+        })
+        .on('broadcast', { event: 'live-mute' }, ({ payload }: any) => {
+          if (payload?.senderId === profile.value?.id) return
+          liveRemoteMuted.value = Boolean(payload?.muted)
+        })
+      return new Promise<void>((resolve, reject) => {
+        signalChannel.subscribe((status: string, error?: unknown) => {
+          if (status === 'SUBSCRIBED') resolve()
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            const detail = realtimeErrorDetail(error)
+            console.error('[CoupleSpace] ZEGO live signal subscription failed', {
+              status,
+              error: detail || error,
+              topic: `zego-live:${profile.value?.coupleId || ''}`,
+            })
+            reject(new Error(`开麦信令连接失败（${status}）${detail ? `：${detail}` : ''}。请确认当前账号仍属于情侣空间，并检查 Supabase Realtime 私有频道策略。`))
+          }
+        })
       })
-      .on('broadcast', { event: 'live-stop' }, ({ payload }: any) => {
-        if (payload?.senderId === profile.value?.id) return
-        ignoreCurrentLive = false
-        cleanupRoom()
-      })
-      .on('broadcast', { event: 'live-mute' }, ({ payload }: any) => {
-        if (payload?.senderId === profile.value?.id) return
-        liveRemoteMuted.value = Boolean(payload?.muted)
-      })
-    channelReady = new Promise<void>((resolve, reject) => {
-      signalChannel.subscribe((status: string, error?: Error) => {
-        if (status === 'SUBSCRIBED') resolve()
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.error('[CoupleSpace] ZEGO live signal subscription failed', {
-            status,
-            error: error?.message,
-            topic: `zego-live:${profile.value?.coupleId || ''}`,
-          })
-          reject(new Error(`开麦信令连接失败（${status}）。请确认 Supabase Realtime 已启用私有频道，并检查 realtime.messages 的 zego-live 权限。`))
-        }
-      })
-    }).catch(async error => {
+    })()
+    channelReady = setup.catch(async error => {
       const failedChannel = signalChannel
       signalChannel = null
       channelReady = null

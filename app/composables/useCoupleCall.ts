@@ -4,6 +4,7 @@ type CallMode = 'audio' | 'video'
 import { notifySystem, requestSystemAlerts } from './useSystemAlerts'
 import { hideNativeCallOverlay, showNativeCallOverlay, startNativeCallService, startNativeIncomingAlert, stopNativeCallService, stopNativeIncomingAlert } from './useAndroidCallControls'
 import { extractZegoErrorCode, validateZegoAuth, zegoErrorMessage } from '~/utils/zegoDiagnostics'
+import { realtimeErrorDetail, syncRealtimeAuth } from '~/utils/realtimeAuth'
 
 const callStatus = ref<CallStatus>('idle')
 const callError = ref('')
@@ -179,44 +180,48 @@ export function useCoupleCall() {
     const canReconnect = () => !demoMode.value && !!profile.value?.coupleId
     const reconnect = () => ensureChannel()
     if (import.meta.client && !callListenersReady) { callOnlineHandler = () => { channelReconnectAttempt = 0; queueCallChannelReconnect(reconnect, canReconnect) }; window.addEventListener('online', callOnlineHandler); callListenersReady = true }
-    signalChannel = $supabase.channel(`zego-call:${profile.value.coupleId}`, { config: { private: true, broadcast: { self: false, ack: true } } })
-      .on('broadcast', { event: 'offer' }, ({ payload }: any) => {
-        if (payload?.senderId === profile.value?.id || callStatus.value !== 'idle') return
-        const incomingCallId = String(payload?.callId || '')
-        if (incomingCallId && incomingCallId === pendingInviteId) return
-        pendingInviteId = incomingCallId
-        pendingInvite = true
-        pendingCallMode = payload?.callMode === 'video' ? 'video' : 'audio'
-        callMode.value = pendingCallMode
-        callStatus.value = 'ringing'
-        void startRingtone('TA', pendingCallMode)
+    const setup = (async () => {
+      await syncRealtimeAuth($supabase)
+      signalChannel = $supabase.channel(`zego-call:${profile.value!.coupleId}`, { config: { private: true, broadcast: { self: false, ack: true } } })
+        .on('broadcast', { event: 'offer' }, ({ payload }: any) => {
+          if (payload?.senderId === profile.value?.id || callStatus.value !== 'idle') return
+          const incomingCallId = String(payload?.callId || '')
+          if (incomingCallId && incomingCallId === pendingInviteId) return
+          pendingInviteId = incomingCallId
+          pendingInvite = true
+          pendingCallMode = payload?.callMode === 'video' ? 'video' : 'audio'
+          callMode.value = pendingCallMode
+          callStatus.value = 'ringing'
+          void startRingtone('TA', pendingCallMode)
+        })
+        .on('broadcast', { event: 'answer' }, async ({ payload }: any) => {
+          if (payload?.senderId === profile.value?.id || callStatus.value !== 'calling') return
+          if (payload?.callId && payload.callId !== activeCallId) return
+          stopOfferRetry()
+          if (callTimeoutTimer) clearTimeout(callTimeoutTimer)
+          callTimeoutTimer = null
+          callStatus.value = 'connecting'
+          try { await joinZegoRoom(callMode.value) } catch (error: any) { failCall(readableCallError(error, '云通话连接失败')) }
+        })
+        .on('broadcast', { event: 'hang-up' }, () => cleanup())
+        .on('broadcast', { event: 'reject' }, () => failCall('对方暂时无法接听'))
+      return new Promise<void>((resolve, reject) => {
+        signalChannel.subscribe((status: string, error?: unknown) => {
+          if (status === 'SUBSCRIBED') { channelReconnectAttempt = 0; resolve() }
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            const detail = realtimeErrorDetail(error)
+            console.error('[CoupleSpace] ZEGO call signal subscription failed', {
+              status,
+              error: detail || error,
+              topic: `zego-call:${profile.value?.coupleId || ''}`,
+            })
+            reject(new Error(`云通话信令连接失败（${status}）${detail ? `：${detail}` : ''}。请确认当前账号仍属于情侣空间，并检查 Supabase Realtime 私有频道策略。`))
+            queueCallChannelReconnect(reconnect, canReconnect)
+          }
+        })
       })
-      .on('broadcast', { event: 'answer' }, async ({ payload }: any) => {
-        if (payload?.senderId === profile.value?.id || callStatus.value !== 'calling') return
-        if (payload?.callId && payload.callId !== activeCallId) return
-        stopOfferRetry()
-        if (callTimeoutTimer) clearTimeout(callTimeoutTimer)
-        callTimeoutTimer = null
-        callStatus.value = 'connecting'
-        try { await joinZegoRoom(callMode.value) } catch (error: any) { failCall(readableCallError(error, '云通话连接失败')) }
-      })
-      .on('broadcast', { event: 'hang-up' }, () => cleanup())
-      .on('broadcast', { event: 'reject' }, () => failCall('对方暂时无法接听'))
-    channelReady = new Promise<void>((resolve, reject) => {
-      signalChannel.subscribe((status: string, error?: Error) => {
-        if (status === 'SUBSCRIBED') { channelReconnectAttempt = 0; resolve() }
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.error('[CoupleSpace] ZEGO call signal subscription failed', {
-            status,
-            error: error?.message,
-            topic: `zego-call:${profile.value?.coupleId || ''}`,
-          })
-          reject(new Error(`云通话信令连接失败（${status}）。请确认 Supabase Realtime 已启用私有频道，并检查 realtime.messages 的 zego-call 权限。`))
-          queueCallChannelReconnect(reconnect, canReconnect)
-        }
-      })
-    })
-    channelReady = channelReady.catch(async error => {
+    })()
+    channelReady = setup.catch(async error => {
       const failedChannel = signalChannel
       signalChannel = null
       channelReady = null
