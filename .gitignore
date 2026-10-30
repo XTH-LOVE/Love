@@ -44,4 +44,5 @@ scripts/oss-upload*.py
 # Local config and screenshots
 .nuxtrc
 .qoder/
+.local/
 landing-page-*

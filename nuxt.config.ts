@@ -19,35 +19,41 @@ export default defineNuxtConfig({
     },
   },
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   vite: {
-    optimizeDeps: {
-      include: ['@capacitor/core', '@capacitor/geolocation'],
+    resolve: {
+      dedupe: ['vue'],
     },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules/zego-express-engine-webrtc')) return 'vendor-zego-engine'
-            if (id.includes('node_modules/three')) return 'vendor-three'
-            if (id.includes('node_modules/leaflet')) return 'vendor-map'
-            if (id.includes('node_modules/@capacitor')) return 'vendor-capacitor'
-            return undefined
-          },
-        },
-      },
+    optimizeDeps: {
+      include: [
+        '@capacitor/core',
+        '@capacitor/geolocation',
+        '@capacitor/local-notifications',
+        '@capacitor/push-notifications',
+        '@capacitor/splash-screen',
+        '@capacitor/status-bar',
+          '@lucide/vue',
+        'gsap',
+        'gsap/ScrollTrigger',
+        'gsap/Flip',
+        'gsap/Observer',
+        'gsap/ScrollToPlugin',
+        'gsap/SplitText',
+        '@supabase/supabase-js',
+        '@uppy/core',
+        '@uppy/golden-retriever',
+        'tus-js-client',
+        'zego-express-engine-webrtc',
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+      ],
     },
   },
   runtimeConfig: {
     public: {
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL || '',
       supabaseAnonKey: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY || '',
-      turnUrl: process.env.NUXT_PUBLIC_TURN_URL || '',
-      turnUrls: process.env.NUXT_PUBLIC_TURN_URLS || process.env.NUXT_PUBLIC_TURN_URL || '',
-      turnUsername: process.env.NUXT_PUBLIC_TURN_USERNAME || '',
-      turnCredential: process.env.NUXT_PUBLIC_TURN_CREDENTIAL || '',
-      zegoAppId: process.env.NUXT_PUBLIC_ZEGO_APP_ID || '1962051148',
-      zegoAppSign: process.env.NUXT_PUBLIC_ZEGO_APPSIGN || '',
+      zegoAppId: process.env.NUXT_PUBLIC_ZEGO_APP_ID || '1477734707',
       zegoServer: process.env.NUXT_PUBLIC_ZEGO_SERVER || 'wss://webliveroom-api.zego.im/ws',
       amapKey: process.env.NUXT_PUBLIC_AMAP_KEY || '',
       amapSecurityCode: process.env.NUXT_PUBLIC_AMAP_SECURITY_CODE || '',

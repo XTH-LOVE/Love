@@ -3,22 +3,26 @@ import '@fontsource-variable/manrope'
 import '@fontsource-variable/nunito-sans'
 import CallScreen from './components/CallScreen.vue'
 import HomePage from './components/HomePage.vue'
+import HeartAiView from './components/HeartAiView.vue'
+import ListenTogetherView from './components/ListenTogetherView.vue'
 import {
   Activity,
   Calendar,
   CalendarDays,
+  ChevronRight,
   Heart,
   Home,
   Image,
   ListChecks,
   MessageCircleHeart,
+  Music2,
   X,
   Settings,
   History,
   BrainCircuit,
-  PawPrint,
   Radio,
   StopCircle,
+  Volume2,
   VolumeX,
   WifiOff,
   RefreshCw,
@@ -38,10 +42,10 @@ const navItems = [
   { label: '日历', icon: Calendar },
   { label: '悄悄话', icon: MessageCircleHeart },
   { label: '心动AI', icon: BrainCircuit },
-  { label: '宠物小屋', icon: PawPrint },
+  { label: '一起听', icon: Music2 },
 ]
-const mobileNavItems = computed(() => navItems)
-
+const NAV_STORAGE_KEY = 'couplespace-active-nav'
+const NAV_LABELS = new Set(navItems.map(item => item.label))
 const activeNav = ref('首页')
 const pageError = ref('')
 const pageRenderKey = ref(0)
@@ -197,13 +201,19 @@ async function reconnectSpaceServices() {
 }
 
 onMounted(async () => {
+  // Keep the selected workspace stable if an async feature causes the shell
+  // to be recreated. Music playback must never appear to send the user home.
+  const savedNav = localStorage.getItem(NAV_STORAGE_KEY)
+  if (savedNav && NAV_LABELS.has(savedNav)) activeNav.value = savedNav
   syncOnlineState()
   window.addEventListener('online', syncOnlineState)
   window.addEventListener('offline', syncOnlineState)
   if (localStorage.getItem('couple-space-first-run-intro') !== '1') firstRunIntroVisible.value = true
-  // Auth/session restoration should never leave a blank shell indefinitely on
-  // a slow network. The auth listener can still finish in the background.
-  await settleWithin(initialize(), 7000)
+  // Session restoration should never leave a blank shell indefinitely on a
+  // slow or unavailable network; show the auth flow when restoration fails.
+  // A rejected Supabase request used to abort this hook before appReady was
+  // set, leaving users on the infinite "正在打开我们的空间" screen.
+  await settleWithin(initialize().catch(() => undefined), 3000)
   authVisible.value = stage.value !== 'paired'
   if (stage.value === 'paired') {
     maybeShowFirstRunChecklist()
@@ -272,6 +282,34 @@ function openTimelineComposer() {
 
 function selectNav(label: string) {
   pageError.value = ''
+  if (label === '通知中心') {
+    notificationVisible.value = true
+    return
+  }
+  if (label === '彩蛋') {
+    easterEggVisible.value = true
+    return
+  }
+  if (label === '空间状态') {
+    spaceStatusVisible.value = true
+    return
+  }
+  if (label === '设置') {
+    accountVisible.value = true
+    return
+  }
+  if (label === '故事') {
+    openRomanceExperience('story')
+    return
+  }
+  if (label === '未来邮箱') {
+    futureMailboxVisible.value = true
+    return
+  }
+  if (label === '声音胶囊') {
+    voiceCapsuleVisible.value = true
+    return
+  }
   if (label === '悄悄话') chatVisible.value = false
   activeNav.value = label
 }
@@ -304,7 +342,7 @@ function animatePageEnter(element: Element, done: () => void) {
     return
   }
   pageMotionContext = context(element, () => {
-    const introNodes = element.querySelectorAll('.topbar, .hero-section, .quote-stage, .pet-streak-widget, .timeline-header, .timeline-summary, .album-header, .album-filters, .pet-house-header, .pet-scene, .pet-stats, .style-panel, .heart-ai > header, .heart-ai > nav')
+    const introNodes = element.querySelectorAll('.topbar, .hero-section, .quote-stage, .timeline-header, .timeline-summary, .album-header, .album-filters, .style-panel, .heart-ai > header, .heart-ai > nav')
     if (introNodes.length) {
       gsap.fromTo(introNodes, { autoAlpha: 0, y: 18 }, {
         autoAlpha: 1,
@@ -316,7 +354,7 @@ function animatePageEnter(element: Element, done: () => void) {
       })
     }
 
-    const scrollNodes = element.querySelectorAll('.dashboard-grid > .panel, .timeline-entry, .photo-wall > button, .pet-stats > article, .style-panel, .ann-list > article, .history > div > article')
+    const scrollNodes = element.querySelectorAll('.dashboard-grid > .panel, .timeline-entry, .photo-wall > button, .style-panel, .ann-list > article, .history > div > article')
     if (!scrollNodes.length || !ScrollTrigger?.batch) return
     gsap.set(scrollNodes, { autoAlpha: 0, y: 18 })
     ScrollTrigger.batch(Array.from(scrollNodes), {
@@ -362,6 +400,7 @@ function animatePageLeave(element: Element, done: () => void) {
 }
 
 watch(activeNav, () => {
+  if (import.meta.client) localStorage.setItem(NAV_STORAGE_KEY, activeNav.value)
   if (!import.meta.client) return
   requestAnimationFrame(scrollPageTop)
 })
@@ -375,7 +414,7 @@ watch(activeNav, () => {
   <FirstRunOnboarding v-if="firstRunIntroVisible" phase="intro" @complete="completeFirstRunIntro" />
   <div v-if="!appReady" class="app-loading"><Heart :size="28" fill="currentColor" /><span>正在打开我们的空间</span></div>
   <AuthFlow v-else-if="authVisible" @complete="authVisible = false" />
-  <div v-else class="app-shell">
+  <div v-else class="app-shell" :class="{ 'motion-reduced': !shouldAnimate }">
     <NuxtRouteAnnouncer />
     <LoveSky />
     <div v-if="isOffline" class="offline-banner" role="status"><WifiOff :size="16" /><span>当前处于离线状态，恢复网络后会自动同步</span><button type="button" aria-label="重新检查网络" title="重新检查" @click="syncOnlineState"><RefreshCw :size="15" /></button></div>
@@ -423,27 +462,28 @@ watch(activeNav, () => {
 
     <Transition mode="out-in" @enter="animatePageEnter" @leave="animatePageLeave">
       <div ref="pageStageRef" :key="activeNav" class="page-stage">
-    <HomePage v-if="activeNav === '首页'" @timeline="openTimelineComposer" />
+    <HomePage v-if="activeNav === '首页'" :navigate="selectNav" @timeline="openTimelineComposer" />
     <main v-else-if="activeNav === '时光'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyTimelineView ref="timelineRef" @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>时光轴暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '相册'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyAlbumView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>相册暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '清单'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyTogetherListView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>清单暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '纪念日'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyAnniversaryView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>纪念日暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else-if="activeNav === '悄悄话'" class="main-content chat-main"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyChatPanel mode="page" @close="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>悄悄话暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
-     <main v-else-if="activeNav === '心动AI'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyHeartAiView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>心动 AI 暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
-     <main v-else-if="activeNav === '宠物小屋'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><Suspense><LazyPetHouseView @back="selectNav('首页')" /><template #fallback><div class="page-skeleton"><i /><i /><i /></div></template></Suspense><template #error><div class="page-error"><h2>宠物小屋暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
+     <main v-else-if="activeNav === '心动AI'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><HeartAiView @back="selectNav('首页')" /><template #error><div class="page-error"><h2>心动 AI 暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
      <main v-else-if="activeNav === '日历'" class="main-content"><SharedCalendarView /></main>
+     <main v-else-if="activeNav === '一起听'" class="main-content"><NuxtErrorBoundary :key="pageRenderKey" @error="pageError = $event.message"><ListenTogetherView /><template #error><div class="page-error"><h2>一起听暂时无法打开</h2><p>{{ pageError }}</p><button type="button" @click="retryPage">重新加载</button></div></template></NuxtErrorBoundary></main>
     <main v-else class="main-content" />
       </div>
     </Transition>
 
     <nav class="mobile-nav glass-panel" aria-label="手机主要导航">
       <button
-        v-for="item in mobileNavItems"
+        v-for="item in navItems"
         :key="item.label"
         class="mobile-nav-button"
         :class="{ active: activeNav === item.label }"
         type="button"
         @click.stop="selectNav(item.label)"
+        :aria-current="activeNav === item.label ? 'page' : undefined"
       >
         <component :is="item.icon" :size="21" />
         <span>{{ item.label }}</span>
@@ -666,9 +706,10 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
   .hero-section { grid-template-columns: 1fr 1fr; }
   .hero-copy { padding: 36px 28px; }
   .hero-copy h2 strong { font-size: 56px; }
-  .mobile-nav { position: fixed; z-index: 30; right: 14px; bottom: max(12px, env(safe-area-inset-bottom)); left: 14px; display: grid; grid-template-columns: repeat(9, 1fr); align-items: center; height: 72px; padding: 8px; border-radius: 24px; }
-  .mobile-nav-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; height: 52px; padding: 4px 2px; border: 0; border-radius: 15px; background: transparent; color: #9991a2; }
-  .mobile-nav-button span { font-size: 9px; font-weight: 700; }
+  .mobile-nav { position: fixed; z-index: 30; right: 14px; bottom: max(12px, env(safe-area-inset-bottom)); left: 14px; display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); align-items: center; height: 72px; padding: 8px; border-radius: 24px; }
+  .mobile-nav-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 52px; height: 52px; padding: 3px 1px; border: 0; border-radius: 15px; background: transparent; color: #9991a2; }
+  .mobile-nav-button svg { width: 18px; height: 18px; flex: 0 0 auto; }
+  .mobile-nav-button span { max-width: 100%; overflow: hidden; font-size: 9px; font-weight: 700; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-nav-button.active { color: var(--lavender-deep); background: var(--lavender-soft); }
   .mobile-add { position: absolute; right: 10px; top: -52px; display: grid; place-items: center; width: 45px; height: 45px; border: 4px solid var(--bg); border-radius: 50%; background: var(--ink); color: #fff; box-shadow: 0 10px 22px rgba(51,47,58,.2); }
 }
@@ -730,8 +771,8 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
   .hero-section{min-height:560px}.hero-copy{padding:24px 19px 26px}.soft-label{font-size:10px}.hero-copy>p{font-size:11px!important;line-height:1.65}
   .quote-copy p{font-size:16px!important}
   .panel{padding:18px;border-radius:20px}.section-heading h3{font-size:15px}
-  .mobile-nav{right:max(10px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));left:max(10px,env(safe-area-inset-left));height:66px;padding:6px;border-radius:21px}
-  .mobile-nav-button{height:48px}.mobile-nav-button span{font-size:8px}
+  .mobile-nav{right:max(10px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));left:max(10px,env(safe-area-inset-left));height:66px;padding:5px;border-radius:21px}
+  .mobile-nav-button{height:48px;gap:1px}.mobile-nav-button svg{width:17px;height:17px}.mobile-nav-button span{font-size:8px}
   .cover-picker-overlay,.account-overlay{padding-top:env(safe-area-inset-top)}
   .cover-picker,.account-panel{max-height:calc(100dvh - env(safe-area-inset-top));}
   .main-content,.app-shell>main{padding-bottom:calc(34px + env(safe-area-inset-bottom))}
@@ -790,6 +831,121 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 @media(max-width:650px){.app-shell{background:#f7f5f8}.glass-panel{backdrop-filter:none;-webkit-backdrop-filter:none}.hero-section{min-height:0;border-radius:15px}.hero-photo{min-height:178px;margin-left:0}.hero-copy{padding:24px 19px 26px}.panel{border-radius:14px}.mobile-nav{border-radius:14px;box-shadow:0 6px 20px rgba(48,37,54,.1)}.mobile-nav-button{border-radius:9px}.mobile-nav-button.active{background:#eee7f0;color:#583d60}}
 </style>
 
+<style>
+/* Shared ambient layer: every page floats above the same moving hearts and stars. */
+.app-shell {
+  background:
+    radial-gradient(circle at 82% 4%, rgba(255, 163, 211, .48), transparent 25%),
+    radial-gradient(circle at 10% 88%, rgba(161, 192, 247, .32), transparent 28%),
+    linear-gradient(135deg, rgba(239, 219, 250, .82), rgba(255, 237, 246, .74) 52%, rgba(219, 239, 250, .78)) !important;
+}
+
+.app-shell::before {
+  background: linear-gradient(135deg, rgba(255,255,255,.36), transparent 42%, rgba(255,255,255,.2)) !important;
+}
+
+.app-shell :is(
+  .sidebar,
+  .mobile-nav,
+  .topbar .message-button,
+  .page-stage .panel,
+  .page-stage .glass-panel,
+  .page-stage .quote-stage,
+  .page-stage .pet-stats article,
+  .page-stage .style-panel,
+  .page-stage .heart-ai,
+  .page-stage .workspace,
+  .page-stage .history,
+  .page-stage .pet-scene,
+  .page-stage .status-panel,
+  .page-stage .network-card,
+  .page-stage .upload-card,
+  .page-stage .identity-card
+) {
+  border-color: rgba(255, 255, 255, .72) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.62), rgba(255,239,250,.38)) !important;
+  box-shadow: 0 18px 44px rgba(88, 43, 105, .13), inset 0 1px 0 rgba(255,255,255,.86) !important;
+  backdrop-filter: blur(20px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(135%) !important;
+}
+
+.app-shell :is(.page-stage .pet-scene) {
+  overflow: hidden;
+}
+
+.app-shell :is(.page-stage .hero-section, .page-stage .pet-scene) {
+  isolation: isolate;
+}
+
+.app-shell :is(
+  .page-stage .hero-section,
+  .page-stage .heart-ai,
+  .page-stage .pet-house-view,
+  .page-stage .album-view,
+  .page-stage .timeline-view,
+  .page-stage .list-view,
+  .page-stage .ann-view
+) {
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell .page-stage :is(
+  .maker,
+  .result-body,
+  .history article,
+  .answers article,
+  .species-options button,
+  .skin-options button,
+  .accessory-options button
+) {
+  background: rgba(255,255,255,.48) !important;
+  border-color: rgba(255,255,255,.7) !important;
+  backdrop-filter: blur(14px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(125%) !important;
+}
+
+.app-shell .page-stage :is(.timeline-summary, .progress-panel, .love-counter) {
+  background: linear-gradient(125deg, rgba(222,194,250,.62), rgba(255,205,228,.58), rgba(191,225,249,.5)) !important;
+}
+
+.app-shell.motion-reduced :is(
+  .love-piece,
+  .pet-big-avatar,
+  .pet-glow,
+  .pet-heart,
+  .reward-lamp,
+  .reward-moon-sofa
+) {
+  animation: none !important;
+}
+
+@media (max-width: 650px) {
+  .app-shell :is(
+    .sidebar,
+    .mobile-nav,
+    .topbar .message-button,
+    .page-stage .panel,
+    .page-stage .glass-panel,
+    .page-stage .quote-stage,
+    .page-stage .pet-stats article,
+    .page-stage .style-panel,
+    .page-stage .heart-ai,
+    .page-stage .workspace,
+    .page-stage .history,
+    .page-stage .pet-scene,
+    .page-stage .status-panel,
+    .page-stage .network-card,
+    .page-stage .upload-card,
+    .page-stage .identity-card
+  ) {
+    background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(255,240,249,.5)) !important;
+    backdrop-filter: blur(12px) saturate(125%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(125%) !important;
+  }
+}
+</style>
+
 
 <style>
 /* Chat is a fixed workspace: only the message list should scroll. */
@@ -831,4 +987,118 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
 .hero-section.has-cover .hero-copy{background:linear-gradient(110deg,rgba(255,250,255,.9),rgba(255,237,248,.74) 78%,rgba(255,237,248,.38))!important}
 .hero-section.has-cover .hero-photo{background-image:none!important}
 @media(max-width:650px){.hero-section.has-cover{background-image:linear-gradient(145deg,#d9c0f1 0%,#f8d2e2 100%)!important}.hero-section.has-cover .hero-copy{background:linear-gradient(145deg,rgba(255,250,255,.92),rgba(255,237,248,.78))!important}.page-back{display:none!important}.offline-banner{top:max(8px,env(safe-area-inset-top));width:calc(100vw - 24px)}}
+</style>
+
+<style>
+/* Final pass must follow the legacy theme overrides above. */
+.app-shell {
+  background:
+    radial-gradient(circle at 82% 4%, rgba(255, 163, 211, .48), transparent 25%),
+    radial-gradient(circle at 10% 88%, rgba(161, 192, 247, .32), transparent 28%),
+    linear-gradient(135deg, rgba(239, 219, 250, .82), rgba(255, 237, 246, .74) 52%, rgba(219, 239, 250, .78)) !important;
+}
+
+.app-shell :is(
+  .sidebar,
+  .mobile-nav,
+  .topbar .message-button,
+  .page-stage .panel,
+  .page-stage .glass-panel,
+  .page-stage .quote-stage,
+  .page-stage .pet-stats article,
+  .page-stage .style-panel,
+  .page-stage .heart-ai,
+  .page-stage .workspace,
+  .page-stage .history,
+  .page-stage .pet-scene,
+  .page-stage .memory-card,
+  .page-stage .items-list article,
+  .page-stage .ann-list article,
+  .page-stage .timeline-summary,
+  .page-stage .progress-panel,
+  .page-stage .love-counter
+) {
+  border-color: rgba(255, 255, 255, .72) !important;
+  background: linear-gradient(145deg, rgba(255,255,255,.62), rgba(255,239,250,.38)) !important;
+  box-shadow: 0 18px 44px rgba(88, 43, 105, .13), inset 0 1px 0 rgba(255,255,255,.86) !important;
+  backdrop-filter: blur(18px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(130%) !important;
+}
+
+.app-shell :is(.page-stage .hero-section, .page-stage .pet-scene) {
+  isolation: isolate;
+}
+
+.app-shell .page-stage :is(
+  .maker,
+  .result-body,
+  .history article,
+  .answers article,
+  .species-options button,
+  .skin-options button,
+  .accessory-options button
+) {
+  background: rgba(255,255,255,.48) !important;
+  border-color: rgba(255,255,255,.7) !important;
+  backdrop-filter: blur(12px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(125%) !important;
+}
+
+.app-shell.motion-reduced :is(
+  .love-piece,
+  .pet-big-avatar,
+  .pet-glow,
+  .pet-heart,
+  .reward-lamp,
+  .reward-moon-sofa
+) {
+  animation: none !important;
+}
+
+@media (max-width: 650px) {
+  .app-shell :is(
+    .sidebar,
+    .mobile-nav,
+    .topbar .message-button,
+    .page-stage .panel,
+    .page-stage .glass-panel,
+    .page-stage .quote-stage,
+    .page-stage .pet-stats article,
+    .page-stage .style-panel,
+    .page-stage .heart-ai,
+    .page-stage .workspace,
+    .page-stage .history,
+    .page-stage .pet-scene,
+    .page-stage .memory-card,
+    .page-stage .items-list article,
+    .page-stage .ann-list article,
+    .page-stage .timeline-summary,
+    .page-stage .progress-panel,
+    .page-stage .love-counter
+  ) {
+    background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(255,240,249,.5)) !important;
+    backdrop-filter: blur(10px) saturate(125%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(125%) !important;
+  }
+}
+
+.app-shell .page-stage .hero-section:not(.has-cover) {
+  background: linear-gradient(128deg, rgba(215,180,251,.68), rgba(246,179,211,.58) 48%, rgba(169,213,246,.52)) !important;
+}
+
+.app-shell .page-stage .pet-scene {
+  background: linear-gradient(145deg, rgba(216,185,239,.72), rgba(246,206,222,.58) 54%, rgba(196,217,243,.52)) !important;
+}
+
+.app-shell .page-stage .pet-scene.scene-pink {
+  background: linear-gradient(145deg, rgba(247,191,211,.72), rgba(245,212,225,.58) 54%, rgba(216,200,240,.52)) !important;
+}
+
+.app-shell .page-stage .pet-scene.scene-mint {
+  background: linear-gradient(145deg, rgba(185,230,217,.72), rgba(225,240,223,.58) 54%, rgba(200,216,238,.52)) !important;
+}
+
+.app-shell .page-stage .pet-scene.scene-night {
+  background: linear-gradient(145deg, rgba(102,114,184,.78), rgba(139,116,187,.66) 54%, rgba(52,59,117,.68)) !important;
+}
 </style>

@@ -21,6 +21,10 @@ function deviceName() {
   return '浏览器设备'
 }
 
+function isMissingRelation(error: any) {
+  return /schema cache|does not exist|relation .* does not exist/i.test(String(error?.message || error || ''))
+}
+
 export function useAccountSecurity() {
   const { $supabase } = useNuxtApp()
   const { profile, demoMode, signOut } = useCoupleAuth()
@@ -40,30 +44,94 @@ export function useAccountSecurity() {
     try {
       const coupleId = profile.value?.coupleId
       if (!coupleId) throw new Error('请先进入情侣空间')
-      const [memories, messages, albums, works, letters] = await Promise.all([
-        $supabase.from('memories').select('*').eq('couple_id', coupleId).order('created_at'),
-        $supabase.from('messages').select('id,sender_id,content,media_path,media_type,created_at,read_at').eq('couple_id', coupleId).order('created_at'),
-        $supabase.from('albums').select('*').eq('couple_id', coupleId).order('created_at'),
-        $supabase.from('ai_saved_works').select('*').eq('couple_id', coupleId).order('created_at'),
-        $supabase.from('couple_letters').select('*').eq('couple_id', coupleId).order('created_at'),
+      async function fetchPaged(table: string, select = '*', orderColumn = 'created_at') {
+        const rows: any[] = []
+        const pageSize = 500
+        for (let offset = 0; ; offset += pageSize) {
+          const result = await $supabase.from(table).select(select).eq('couple_id', coupleId).order(orderColumn, { ascending: true }).range(offset, offset + pageSize - 1)
+          if (result.error) {
+            if (isMissingRelation(result.error)) return []
+            throw result.error
+          }
+          rows.push(...(result.data || []))
+          if (!result.data || result.data.length < pageSize) return rows
+        }
+      }
+      async function fetchOptionalPaged(table: string, select = '*', orderColumn = 'created_at') {
+        try { return await fetchPaged(table, select, orderColumn) } catch (cause) {
+          if (isMissingRelation(cause)) return []
+          throw cause
+        }
+      }
+      async function fetchPagedRpc(name: string) {
+        const rows: any[] = []
+        const pageSize = 500
+        for (let offset = 0; ; offset += pageSize) {
+          const result = await $supabase.rpc(name).range(offset, offset + pageSize - 1)
+          if (result.error) {
+            if (isMissingRelation(result.error)) return []
+            throw result.error
+          }
+          rows.push(...(result.data || []))
+          if (!result.data || result.data.length < pageSize) return rows
+        }
+      }
+      const [memories, messages, albums, works, letters, moodCheckins, dailyQuestions, dailyAnswers, sharedEvents, musicRoomMessages, listeningSessions, voiceCapsules, callRecords, streakActions, storyLinks, futureLetters] = await Promise.all([
+        fetchPaged('memories'),
+        fetchPaged('messages', 'id,sender_id,content,media_path,media_type,media_poster_path,created_at,read_at'),
+        fetchPaged('albums'),
+        fetchPaged('ai_saved_works'),
+        fetchPaged('couple_letters'),
+        fetchOptionalPaged('mood_checkins', '*', 'mood_date'),
+        fetchOptionalPaged('daily_questions', '*', 'question_date'),
+        fetchOptionalPaged('daily_answers'),
+        fetchOptionalPaged('shared_events', '*', 'event_date'),
+        fetchOptionalPaged('music_room_messages'),
+        fetchOptionalPaged('listening_sessions', '*', 'updated_at'),
+        fetchOptionalPaged('voice_capsules'),
+        fetchOptionalPaged('call_records', '*', 'started_at'),
+        fetchOptionalPaged('streak_day_actions', '*', 'activity_date'),
+        fetchOptionalPaged('story_share_links'),
+        fetchPagedRpc('get_future_letters'),
       ])
-      const albumIds = (albums.data || []).map((item: any) => item.id).filter(Boolean)
-      const photos = albumIds.length
-        ? await $supabase.from('album_photos').select('*').in('album_id', albumIds)
-        : { data: [], error: null }
-      if (memories.error) throw memories.error
-      if (messages.error) throw messages.error
-      if (albums.error) throw albums.error
-      if (photos.error) throw photos.error
-      if (works.error) throw works.error
-      if (letters.error) throw letters.error
+      const albumIds = albums.map((item: any) => item.id).filter(Boolean)
+      const photos: any[] = []
+      for (let offset = 0; albumIds.length; offset += 500) {
+        const result = await $supabase.from('album_photos').select('*').in('album_id', albumIds).order('taken_date', { ascending: true }).range(offset, offset + 499)
+        if (result.error) throw result.error
+        photos.push(...(result.data || []))
+        if (!result.data || result.data.length < 500) break
+      }
       const mediaPaths = [
-        ...(memories.data || []).flatMap((item: any) => (Array.isArray(item.photos) ? item.photos : []).flatMap((photo: any) => [photo.path, photo.thumbPath, photo.mediumPath, photo.originalPath].filter(Boolean).map((path: string) => ({ bucket: 'memory-photos', path })))),
-        ...(photos.data || []).flatMap((item: any) => [item.path, item.thumb_path, item.medium_path, item.original_path].filter(Boolean).map((path: string) => ({ bucket: 'album-media', path }))),
-        ...(messages.data || []).filter((item: any) => item.media_path).map((item: any) => ({ bucket: 'message-media', path: item.media_path })),
+        ...(memories || []).flatMap((item: any) => (Array.isArray(item.photos) ? item.photos : []).flatMap((photo: any) => [photo.path, photo.thumbPath, photo.mediumPath, photo.originalPath].filter(Boolean).map((path: string) => ({ bucket: 'memory-photos', path })))),
+        ...photos.flatMap((item: any) => [item.path, item.thumb_path, item.medium_path, item.original_path, item.video_poster_path].filter(Boolean).map((path: string) => ({ bucket: 'album-media', path }))),
+        ...(messages || []).flatMap((item: any) => [item.media_path, item.media_poster_path].filter(Boolean).map((path: string) => ({ bucket: 'message-media', path }))),
+        ...(musicRoomMessages || []).filter((item: any) => item.audio_path).map((item: any) => ({ bucket: 'message-media', path: item.audio_path })),
+        ...(voiceCapsules || []).filter((item: any) => item.audio_path).map((item: any) => ({ bucket: 'message-media', path: item.audio_path })),
       ].filter(item => item.path)
       const media = await Promise.all(mediaPaths.map(async item => ({ ...item, url: await createMediaSignedUrl($supabase, item.path, item.bucket) })))
-      downloadJson(`love-home-export-${new Date().toISOString().slice(0, 10)}.json`, { exportedAt: new Date().toISOString(), profile: profile.value, memories: memories.data || [], messages: messages.data || [], albums: albums.data || [], albumPhotos: photos.data || [], aiWorks: works.data || [], letters: letters.data || [], media })
+      downloadJson(`love-home-export-${new Date().toISOString().slice(0, 10)}.json`, {
+        exportedAt: new Date().toISOString(),
+        profile: profile.value,
+        memories,
+        messages,
+        albums,
+        albumPhotos: photos,
+        aiWorks: works,
+        letters,
+        moodCheckins,
+        dailyQuestions,
+        dailyAnswers,
+        sharedEvents,
+        musicRoomMessages,
+        listeningSessions,
+        voiceCapsules,
+        futureLetters,
+        callRecords,
+        streakActions,
+        storyLinks,
+        media,
+      })
     } catch (e: any) { error.value = e.message || '导出失败' } finally { working.value = false }
   }
 

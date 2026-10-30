@@ -14,7 +14,6 @@ export function useAlbums() {
   const { $supabase } = useNuxtApp()
   const { profile, demoMode } = useCoupleAuth()
   const { memories, loadMemories } = useMemories()
-  const { recordActivity } = useCouplePet()
 
   function demoLoad() {
     albums.value = JSON.parse(localStorage.getItem('couple-space-albums') || '[]')
@@ -235,7 +234,7 @@ export function useAlbums() {
       if ($supabase && uploadedPaths.length) await $supabase.storage.from('album-media').remove([...new Set(uploadedPaths)]).catch(() => undefined)
       throw error
     }
-    if (!$supabase || demoMode.value) { album.photoCount = albumPhotos.value.filter(photo => photo.albumId === albumId).length; album.coverUrl ||= albumPhotos.value.find(photo => photo.albumId === albumId)?.url || ''; demoSave() } else await loadAlbums(true); void recordActivity('photo')
+    if (!$supabase || demoMode.value) { album.photoCount = albumPhotos.value.filter(photo => photo.albumId === albumId).length; album.coverUrl ||= albumPhotos.value.find(photo => photo.albumId === albumId)?.url || ''; demoSave() } else await loadAlbums(true)
   }
 
   async function deletePhoto(photo: GalleryPhoto) {

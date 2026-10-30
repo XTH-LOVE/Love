@@ -22,8 +22,6 @@ function ensureSplashGone() {
   dismissed.value = true
   startupVisible.value = false
   visible.value = false
-  const host = splashRoot.value
-  if (host) host.innerHTML = ''
   if (timer) { clearInterval(timer); timer = undefined }
   if (startupTimer) { clearTimeout(startupTimer); startupTimer = undefined }
   if (leaveFallback) { clearTimeout(leaveFallback); leaveFallback = undefined }

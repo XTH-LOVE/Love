@@ -47,7 +47,6 @@ const legacyOptimizationAttempted = new Set<string>()
 export function useMemories() {
   const { $supabase } = useNuxtApp()
   const { profile, demoMode } = useCoupleAuth()
-  const { recordActivity } = useCouplePet()
 
   function loadDemo() {
     const saved = localStorage.getItem('couple-space-memories')
@@ -224,8 +223,9 @@ export function useMemories() {
     const uploadedPhotos = await uploadPhotos(files)
     const photos = [...input.photos, ...uploadedPhotos]
     if (!$supabase || demoMode.value) {
-      memories.value.unshift({ ...input, photos, id: crypto.randomUUID(), authorId: profile.value?.id || 'demo-user',authorName:profile.value?.displayName||'我', createdAt: new Date().toISOString() })
-      memories.value.sort((a, b) => b.memoryDate.localeCompare(a.memoryDate)); saveDemo(); void recordActivity('memory'); return
+      const id = crypto.randomUUID()
+      memories.value.unshift({ ...input, photos, id, authorId: profile.value?.id || 'demo-user',authorName:profile.value?.displayName||'我', createdAt: new Date().toISOString() })
+      memories.value.sort((a, b) => b.memoryDate.localeCompare(a.memoryDate)); saveDemo(); return id
     }
     const { error } = await $supabase.from('memories').insert({ couple_id: profile.value!.coupleId, author_id: profile.value!.id, content: input.content, memory_date: input.memoryDate, location: input.location || null, photos: photos.map(({ path, thumbPath, mediumPath, originalPath }) => ({ path, thumbPath, mediumPath, originalPath })) })
     if (error) {
@@ -233,7 +233,8 @@ export function useMemories() {
       if (paths.length) await $supabase.storage.from('memory-photos').remove(paths).catch(() => undefined)
       throw error
     }
-    await loadMemories(); void recordActivity('memory')
+    await loadMemories()
+    return memories.value.find(item => item.memoryDate === input.memoryDate && item.content === input.content)?.id || ''
   }
 
   async function updateMemory(id: string, input: Omit<Memory, 'id' | 'authorId' | 'authorName' | 'createdAt'>, files: File[]) {
@@ -242,7 +243,7 @@ export function useMemories() {
     if (!$supabase || demoMode.value) {
       const index = memories.value.findIndex(item => item.id === id)
       if (index >= 0) memories.value[index] = { ...memories.value[index]!, ...input, photos }
-      memories.value.sort((a, b) => b.memoryDate.localeCompare(a.memoryDate)); saveDemo(); void recordActivity('memory'); return
+      memories.value.sort((a, b) => b.memoryDate.localeCompare(a.memoryDate)); saveDemo(); return
     }
     const { error } = await $supabase.from('memories').update({ content: input.content, memory_date: input.memoryDate, location: input.location || null, photos: photos.map(({ path, thumbPath, mediumPath, originalPath }) => ({ path, thumbPath, mediumPath, originalPath })), updated_at: new Date().toISOString() }).eq('id', id)
     if (error) {
@@ -250,7 +251,7 @@ export function useMemories() {
       if (paths.length) await $supabase.storage.from('memory-photos').remove(paths).catch(() => undefined)
       throw error
     }
-    await loadMemories(); void recordActivity('memory')
+    await loadMemories()
   }
 
   async function deleteMemory(memory: Memory) {

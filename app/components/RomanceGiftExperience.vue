@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, CalendarDays, Check, Copy, Heart, Image as Image
 type ExperienceMode = 'opening' | 'story'
 type Props = { mode?: ExperienceMode }
 type StoryLetter = { senderId: string; content: string; createdAt: string }
-type StorySlide = { kind: 'photo' | 'whisper' | 'letter' | 'anniversary' | 'gallery' | 'voice' | 'streak' | 'ending'; title: string; body?: string; date?: string; image?: string; images?: string[]; audio?: string; meta?: string }
+type StorySlide = { kind: 'photo' | 'whisper' | 'letter' | 'anniversary' | 'gallery' | 'voice' | 'ending'; title: string; body?: string; date?: string; image?: string; images?: string[]; audio?: string; meta?: string }
 type StoryPhoto = { url: string; takenDate?: string; mediaType?: string; uploaderName?: string }
 
 const props = withDefaults(defineProps<Props>(), { mode: 'opening' })
@@ -15,7 +15,6 @@ const { memories } = useMemories()
 const { allPhotos } = useAlbums()
 const { messages } = useMessages()
 const { anniversaries, loveDays } = useAnniversaries()
-const { streak } = useCouplePet()
 const { members } = useAccountManagement()
 const { capsules, load: loadVoiceCapsules } = useVoiceCapsules()
 const { createLink, revoke: revokeStoryLink } = useStoryShare()
@@ -79,7 +78,6 @@ const storySlides = computed<StorySlide[]>(() => {
   if (recentPhotos.value.length) slides.push({ kind: 'gallery', title: '最近的十个瞬间', body: '每一张照片，都是你们共同生活的证据。', images: recentPhotos.value })
   if (recentVideos.value.length) slides.push({ kind: 'gallery', title: '最近保存的共同视频', body: '会动的回忆，也被好好留在这里。', images: recentVideos.value, meta: `${recentVideos.value.length} 段视频封面` })
   if (firstVoiceCapsule.value) slides.push({ kind: 'voice', title: firstVoiceCapsule.value.title, body: '一枚声音胶囊，等你在想念的时候拆开。', audio: firstVoiceCapsule.value.audioUrl, date: formatDate(firstVoiceCapsule.value.createdAt), meta: '声音胶囊' })
-  if (streak.value?.currentDays) slides.push({ kind: 'streak', title: `你们已经连续续下 ${streak.value.currentDays} 天火花`, body: '今天也一起留下一个小小的回应吧。', meta: `最长连续 ${streak.value.longestDays} 天` })
   slides.push({ kind: 'ending', title: '故事还没有结束', body: '下一页，等我们一起写。' })
   return slides
 })

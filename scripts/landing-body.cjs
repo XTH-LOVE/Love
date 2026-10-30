@@ -1,4 +1,8 @@
 // Landing page HTML body sections
+const fs=require('fs'),path=require('path');
+const qrSvg=fs.readFileSync(path.join(__dirname,'apk-qr.svg'),'utf8');
+const moonSvg=`<svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>`;
+const sunSvg=`<svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
 const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><defs><linearGradient id="gb" x1="100" y1="70" x2="920" y2="950" gradientUnits="userSpaceOnUse"><stop stop-color="#FDF8FF"/><stop offset=".46" stop-color="#E8D4F5"/><stop offset="1" stop-color="#F8CEDF"/></linearGradient><linearGradient id="gv" x1="245" y1="230" x2="700" y2="790" gradientUnits="userSpaceOnUse"><stop stop-color="#A86BC5"/><stop offset="1" stop-color="#784396"/></linearGradient><linearGradient id="gr" x1="770" y1="245" x2="350" y2="810" gradientUnits="userSpaceOnUse"><stop stop-color="#ED8CB5"/><stop offset="1" stop-color="#C65F91"/></linearGradient></defs><rect x="38" y="38" width="948" height="948" rx="232" fill="url(#gb)"/><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M512 779C397 694 224 571 224 394c0-104 72-178 164-178 58 0 101 29 124 72 23-43 66-72 124-72 92 0 164 74 164 178 0 177-173 300-288 385Z" stroke="url(#gv)" stroke-width="106" opacity=".94"/><path d="M512 779C397 694 224 571 224 394c0-104 72-178 164-178 58 0 101 29 124 72 23-43 66-72 124-72 92 0 164 74 164 178 0 177-173 300-288 385Z" stroke="url(#gr)" stroke-width="54" opacity=".92"/></g><circle cx="512" cy="493" r="55" fill="#FFF" fill-opacity=".92"/><path d="m489 493 17 17 33-38" fill="none" stroke="#B467AD" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ghSvg=`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/></svg>`;
 
@@ -13,15 +17,15 @@ nav: `<nav class="nav" id="mn"><div class="ni">
 <a href="#download" data-sec="download">\u4e0b\u8f7d</a>
 <a href="#faq" data-sec="faq">FAQ</a>
 <a href="https://github.com/XTH-LOVE/Love-" target="_blank" rel="noopener">GitHub</a>
-<button class="theme-toggle" id="themeToggle" aria-label="\u5207\u6362\u4e3b\u9898">\ud83c\udf19</button>
+<button class="theme-toggle" id="themeToggle" aria-label="\u5207\u6362\u6df1\u6d45\u4e3b\u9898">${moonSvg}${sunSvg}</button>
 <a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="nb">\u5f00\u59cb\u4f7f\u7528</a>
 </div>
-<button class="mb" id="mb" aria-label="\u83dc\u5355"><span></span></button>
+<button class="mb" id="mb" aria-label="\u83dc\u5355" aria-expanded="false" aria-controls="dr"><span></span></button>
 </div></nav>
 <div class="dr" id="dr"><div class="dp">
 <button class="dc" id="dcl" aria-label="\u5173\u95ed">\u2715</button>
 <div class="dl">
-<a href="#features">\u529f\u80fd</a><a href="#compare">\u5bf9\u6bd4</a><a href="#showcase">\u4eae\u70b9</a><a href="#how">\u4e0a\u624b</a><a href="#download">\u4e0b\u8f7d</a><a href="#faq">FAQ</a>
+<a href="#features">功能</a><a href="#compare">对比</a><a href="#showcase">亮点</a><a href="#how">上手</a><a href="#download">下载</a><a href="#changelog">更新日志</a><a href="#faq">FAQ</a>
 <a href="https://github.com/XTH-LOVE/Love-" target="_blank" rel="noopener">GitHub</a>
 <a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="dcta">\u5f00\u59cb\u4f7f\u7528 \u2192</a>
 </div></div></div>`,
@@ -51,25 +55,32 @@ hero: `<section class="hero" id="hero"><div class="W">
 <div class="fl c"><span class="fi bl">\ud83d\udccd</span>\u5206\u4eab\u4f4d\u7f6e\u7ed9\u4f60</div>
 </div>
 </div>
-<div class="scroll-hint"><span>\u5411\u4e0b\u6eda\u52a8</span><div class="arrow"></div></div>
+<div class="scroll-hint"><span>向下滚动</span><div class="arrow"></div></div>
 </section>`,
 
+story: `<section id="story"><div class="W">
+<div class="story-box rv">
+<div class="story-quote">“照片不该被淹没在群聊里，<br>纪念日不该只靠日历提醒，悄悄话也不必混进社交动态。”</div>
+<p class="story-text">Love小家始于一个朴素的愿望：想要一个只属于两个人的安静角落。于是我们自己动手造了这个房间——把重要的日常认真收藏在一起。后来我们决定把它开源，希望每一对认真相爱的人，都能拥有一个值得回来的地方。</p>
+<div class="story-sign"><span class="story-name">缐廷华</span> · Love小家开发者 · <a href="https://github.com/XTH-LOVE" target="_blank" rel="noopener">GitHub: XTH-LOVE</a></div>
+</div></div></section>`,
+
 compare: `<section id="compare" class="alt"><div class="W">
-<div class="sh rv"><span class="tag">\u2726 \u5bf9\u6bd4\u4f18\u52bf</span><h2>\u4e3a\u4ec0\u4e48\u9009\u62e9 <span class="gt">Love\u5c0f\u5bb6</span></h2><p>\u4e0e\u5176\u4ed6\u60c5\u4fa3\u5e94\u7528\u76f8\u6bd4\uff0cLove\u5c0f\u5bb6\u7684\u72ec\u7279\u4f18\u52bf\u3002</p></div>
+<div class="sh rv"><span class="tag">\u2726 \u5bf9\u6bd4\u4f18\u52bf</span><h2>\u4e3a\u4ec0\u4e48\u9009\u62e9 <span class="gt">Love\u5c0f\u5bb6</span></h2><p>\u76f8\u6bd4\u901a\u7528\u793e\u4ea4\u5de5\u5177\u548c\u5e38\u89c1\u60c5\u4fa3\u7c7b\u5e94\u7528\uff0cLove\u5c0f\u5bb6\u7684\u5b9a\u4f4d\u6709\u4ec0\u4e48\u4e0d\u540c\u3002</p></div>
 <div class="cmp-wrap rv">
 <table class="cmp-table">
-<thead><tr><th>\u529f\u80fd\u7279\u6027</th><th>\u5fae\u4fe1</th><th>\u60c5\u4fa3\u7a7a\u95f4</th><th>\u604b\u7231\u8bb0</th><th class="hl">Love\u5c0f\u5bb6</th></tr></thead>
+<thead><tr><th>\u529f\u80fd\u7279\u6027</th><th>\u901a\u7528 IM \u5e94\u7528</th><th>\u5176\u4ed6\u60c5\u4fa3\u7c7b\u5e94\u7528</th><th class="hl">Love\u5c0f\u5bb6</th></tr></thead>
 <tbody>
-<tr><td>\u79c1\u5bc6\u6570\u636e\u9694\u79bb</td><td>\u2716</td><td>\u2716</td><td>\u25cb</td><td class="hl">\u2714</td></tr>
-<tr><td>\u5f00\u6e90\u514d\u8d39</td><td>\u2716</td><td>\u2716</td><td>\u2716</td><td class="hl">\u2714</td></tr>
-<tr><td>\u81ea\u6258\u7ba1\u90e8\u7f72</td><td>\u2716</td><td>\u2716</td><td>\u2716</td><td class="hl">\u2714</td></tr>
-<tr><td>AI \u60c5\u4e66/\u65e5\u8bb0</td><td>\u2716</td><td>\u2716</td><td>\u25cb</td><td class="hl">\u2714</td></tr>
-<tr><td>3D \u5ba0\u7269\u517b\u6210</td><td>\u2716</td><td>\u2716</td><td>\u2716</td><td class="hl">\u2714</td></tr>
-<tr><td>\u8de8\u5e73\u53f0\u4e00\u81f4\u4f53\u9a8c</td><td>\u25cb</td><td>\u25cb</td><td>\u25cb</td><td class="hl">\u2714</td></tr>
-<tr><td>\u97f3\u89c6\u9891\u901a\u8bdd</td><td>\u2714</td><td>\u2716</td><td>\u2716</td><td class="hl">\u2714</td></tr>
+<tr><td>\u79c1\u5bc6\u6570\u636e\u9694\u79bb</td><td>\u2716</td><td>\u25cb</td><td class="hl">\u2714</td></tr>
+<tr><td>\u5f00\u6e90\u514d\u8d39</td><td>\u2716</td><td>\u2716</td><td class="hl">\u2714</td></tr>
+<tr><td>\u81ea\u6258\u7ba1\u90e8\u7f72</td><td>\u2716</td><td>\u2716</td><td class="hl">\u2714</td></tr>
+<tr><td>AI \u60c5\u4e66/\u65e5\u8bb0</td><td>\u2716</td><td>\u25cb</td><td class="hl">\u2714</td></tr>
+<tr><td>3D \u5ba0\u7269\u517b\u6210</td><td>\u2716</td><td>\u2716</td><td class="hl">\u2714</td></tr>
+<tr><td>\u8de8\u5e73\u53f0\u4e00\u81f4\u4f53\u9a8c</td><td>\u25cb</td><td>\u25cb</td><td class="hl">\u2714</td></tr>
+<tr><td>\u97f3\u89c6\u9891\u901a\u8bdd</td><td>\u2714</td><td>\u2716</td><td class="hl">\u2714</td></tr>
 </tbody>
 </table>
-<div class="cmp-note rv d2">\u2714 \u5b8c\u5168\u652f\u6301 \u00b7 \u25cb \u90e8\u5206\u652f\u6301 \u00b7 \u2716 \u4e0d\u652f\u6301</div>
+<div class="cmp-note rv d2">\u2714 \u5b8c\u5168\u652f\u6301 \u00b7 \u25cb \u90e8\u5206\u652f\u6301 \u00b7 \u2716 \u4e0d\u652f\u6301\uff08\u5bf9\u6bd4\u57fa\u4e8e\u6b64\u7c7b\u4ea7\u54c1\u7684\u666e\u904d\u60c5\u51b5\u6982\u62ec\uff09</div>
 </div></div></section>`,
 
 features: `<section id="features"><div class="W">
@@ -119,9 +130,9 @@ how: `<section id="how" class="alt"><div class="W">
 download: `<section id="download"><div class="W">
 <div class="sh rv"><span class="tag">\u2726 \u83b7\u53d6\u5e94\u7528</span><h2>\u9009\u62e9\u4f60\u7684<span class="gt2">\u4f7f\u7528\u65b9\u5f0f</span></h2><p>\u7f51\u9875\u7248\u5373\u5f00\u5373\u7528\uff0c\u4e5f\u53ef\u4ee5\u76f4\u63a5\u4e0b\u8f7d\u5ba2\u6237\u7aef\u83b7\u5f97\u539f\u751f\u4f53\u9a8c\u3002\u65e0\u9700\u8bbf\u95ee GitHub\u3002</p></div>
 <div class="dl-grid">
-<div class="dl-card rv d2"><div class="icon">\ud83c\udf10</div><h3>\u5728\u7ebf\u4f53\u9a8c</h3><p>\u65e0\u9700\u5b89\u88c5\uff0c\u6253\u5f00\u6d4f\u89c8\u5668\u5373\u53ef\u4f7f\u7528\u3002\u652f\u6301 PWA \u5b89\u88c5\u5230\u4e3b\u5c4f\u5e55\u3002</p><a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="dl-btn">\u6253\u5f00\u7f51\u9875\u7248 \u2192</a></div>
-<div class="dl-card rv d4"><div class="icon">\ud83d\udcf1</div><h3>Android APK</h3><p>\u539f\u751f Android \u4f53\u9a8c\uff0c\u652f\u6301\u63a8\u9001\u901a\u77e5\u548c\u540e\u53f0\u8fd0\u884c\u3002\u4e0b\u8f7d\u540e\u5c06 .zip \u540e\u7f00\u6539\u4e3a .apk \u5373\u53ef\u5b89\u88c5\u3002</p><a href="https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love\u5c0f\u5bb6-latest.zip" download class="dl-btn gh">\u4e0b\u8f7d APK \u2193</a></div>
-<div class="dl-card rv d6"><div class="icon">\ud83d\udcbb</div><h3>Windows \u684c\u9762\u7248</h3><p>\u8f7b\u91cf\u684c\u9762\u5ba2\u6237\u7aef\uff0c\u72ec\u7acb\u7a97\u53e3\u8fd0\u884c\u3002\u70b9\u51fb\u76f4\u63a5\u4e0b\u8f7d\uff08142MB\uff09\u3002</p><a href="https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love\u5c0f\u5bb6-Windows-x64.exe" download class="dl-btn gh">\u4e0b\u8f7d EXE \u2193</a></div>
+<div class="dl-card rv d2"><div class="icon">\ud83c\udf10</div><h3>\u5728\u7ebf\u4f53\u9a8c</h3><span class="dl-meta">\u65e0\u9700\u5b89\u88c5 \u00b7 \u652f\u6301 PWA</span><p>\u6253\u5f00\u6d4f\u89c8\u5668\u5373\u53ef\u4f7f\u7528\uff0c\u8fd8\u53ef\u901a\u8fc7\u6d4f\u89c8\u5668\u83dc\u5355\u201c\u5b89\u88c5\u5230\u4e3b\u5c4f\u5e55\u201d\u50cf App \u4e00\u6837\u6253\u5f00\u3002</p><a href="https://love-home.pages.dev/" target="_blank" rel="noopener" class="dl-btn">\u6253\u5f00\u7f51\u9875\u7248 \u2192</a></div>
+<div class="dl-card rv d4"><div class="icon">\ud83d\udcf1</div><h3>Android APK</h3><span class="dl-meta">v1.0.0 \u00b7 \u7ea6 11 MB \u00b7 Android 7.0+</span><div class="qr-box" aria-hidden="true">${qrSvg}</div><span class="qr-cap">\u624b\u673a\u626b\u7801\u76f4\u63a5\u4e0b\u8f7d\u5b89\u88c5</span><a href="https://love-landing-8s9.pages.dev/downloads/Love%E5%B0%8F%E5%AE%B6-latest.apk" download class="dl-btn gh">\u4e0b\u8f7d APK \u2193</a><div class="dl-note">\u9996\u6b21\u5b89\u88c5\u9700\u5141\u8bb8\u201c\u672a\u77e5\u6765\u6e90\u5e94\u7528\u201d \u00b7 <a href="#faq">\u67e5\u770b\u5b89\u88c5\u6559\u7a0b</a></div></div>
+<div class="dl-card rv d6"><div class="icon">\ud83d\udcbb</div><h3>Windows \u684c\u9762\u7248</h3><span class="dl-meta">v1.0.0 \u00b7 \u7ea6 142 MB \u00b7 Windows 10+ x64</span><p>\u8f7b\u91cf\u684c\u9762\u5ba2\u6237\u7aef\uff0c\u72ec\u7acb\u7a97\u53e3\u8fd0\u884c\uff0c\u4e0b\u8f7d\u540e\u53cc\u51fb\u5373\u53ef\u5b89\u88c5\u3002</p><a href="https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love\u5c0f\u5bb6-Windows-x64.exe" download class="dl-btn gh">\u4e0b\u8f7d EXE \u2193</a><div class="dl-note">\u82e5 SmartScreen \u63d0\u793a\u62e6\u622a\uff0c\u70b9\u201c\u66f4\u591a\u4fe1\u606f \u2192 \u4ecd\u8981\u8fd0\u884c\u201d \u00b7 <a href="#faq">\u67e5\u770b\u8bf4\u660e</a></div></div>
 </div></div></section>`,
 
 platforms: `<section id="platforms" class="alt"><div class="W">
@@ -153,26 +164,85 @@ privacy: `<section id="privacy" class="alt"><div class="W">
 <div class="priv-item rv d2"><span class="priv-icon">\ud83d\udd12</span><span>RLS \u884c\u7ea7\u5b89\u5168\u7b56\u7565\uff0c\u6570\u636e\u4ee5 couple_id \u4e3a\u8fb9\u754c\u9694\u79bb</span></div>
 <div class="priv-item rv d3"><span class="priv-icon">\ud83d\udd11</span><span>Storage \u7b7e\u540d\u5730\u5740\uff0c\u4e0d\u66b4\u9732\u516c\u5f00\u6c38\u4e45\u6587\u4ef6 URL</span></div>
 <div class="priv-item rv d4"><span class="priv-icon">\ud83d\udee1\ufe0f</span><span>\u654f\u611f\u5bc6\u94a5\u53ea\u5b58\u670d\u52a1\u7aef Edge Function Secrets</span></div>
-<div class="priv-item rv d5"><span class="priv-icon">\ud83c\udf10</span><span>AI \u8bf7\u6c42\u901a\u8fc7\u670d\u52a1\u7aef\u8f6c\u53d1\uff0c\u6d4f\u89c8\u5668\u4e0d\u63a5\u89e6\u4f9b\u5e94\u5546\u5bc6\u94a5</span></div>
-</div></div></div></div></section>`,
+<div class="priv-item rv d5"><span class="priv-icon">\ud83c\udf10</span><span>AI 请求通过服务端转发，浏览器不接触供应商密钥</span></div>
+</div></div>
+<div class="rights rv d6">
+<div class="sh" style="margin:0 0 28px"><span class="tag">✦ 用户权利声明</span></div>
+<div class="rights-grid">
+<div class="right-item"><span class="ri-ic">\ud83d\uddc2\ufe0f</span><div><h4>数据属于你们</h4><p>照片、聊天记录都存储在你指定的数据库中，可以随时导出或删除。</p></div></div>
+<div class="right-item"><span class="ri-ic">\ud83d\udeab</span><div><h4>无广告、无追踪</h4><p>不投放广告、不追踪行为、不出售任何形式的数据。</p></div></div>
+<div class="right-item"><span class="ri-ic">\ud83d\udd0d</span><div><h4>完全开源可审计</h4><p>每一行代码都可以被审阅，你的数据如何被处理一清二楚。</p></div></div>
+<div class="right-item"><span class="ri-ic">\ud83c\udfe0</span><div><h4>可完全自托管</h4><p>部署到你自己的服务器，从此不依赖任何第三方。</p></div></div>
+</div>
+</div></div></div></section>`,
 
 testimonials: `<section><div class="W">
-<div class="sh rv"><span class="tag">\u2726 \u7528\u6237\u5fc3\u58f0</span><h2>\u4ed6\u4eec\u90fd\u5728\u7528 <span class="gt">Love\u5c0f\u5bb6</span></h2><p>\u6765\u81ea\u771f\u5b9e\u7528\u6237\u7684\u53cd\u9988\uff0c\u770b\u770b\u4ed6\u4eec\u5982\u4f55\u8bb0\u5f55\u5c5e\u4e8e\u81ea\u5df1\u7684\u7231\u60c5\u6545\u4e8b\u3002</p></div>
+<div class="sh rv"><span class="tag">\u2726 \u4f7f\u7528\u6f14\u793a</span><h2>\u6709\u4e86\u8fd9\u4e2a\u7a7a\u95f4\uff0c<span class="gt">\u65e5\u5e38\u4f1a\u53d8\u6210\u8fd9\u6837</span></h2><p>\u4ee5\u4e0b\u4e3a\u60f3\u8c61\u7684\u4f7f\u7528\u573a\u666f\u6f14\u793a\uff0c\u770b\u770b\u7528 Love\u5c0f\u5bb6\u8bb0\u5f55\u7231\u60c5\u65e5\u5e38\u662f\u4ec0\u4e48\u4f53\u9a8c\u3002</p></div>
 <div class="tests">
-<div class="test rv d2"><div class="stars">\u2605\u2605\u2605\u2605\u2605</div><p class="text">"\u7ec8\u4e8e\u6709\u4e00\u4e2a\u53ea\u5c5e\u4e8e\u6211\u4eec\u4e24\u4e2a\u4eba\u7684\u7a7a\u95f4\u4e86\uff0c\u4e0d\u7528\u5728\u5fae\u4fe1\u7fa4\u91cc\u7ffb\u804a\u5929\u8bb0\u5f55\uff0c\u6240\u6709\u7f8e\u597d\u7684\u56de\u5fc6\u90fd\u5728\u8fd9\u91cc\u3002"</p><div class="user"><div class="avatar a"></div><div><div class="name">\u5c0f\u9c7c & \u963f\u6770</div><div class="rel">\u5728\u4e00\u8d77 2 \u5e74</div></div></div></div>
+<div class="test rv d2"><div class="stars">\u2605\u2605\u2605\u2605\u2605</div><p class="text">"\u7ec8\u4e8e\u6709\u4e00\u4e2a\u53ea\u5c5e\u4e8e\u6211\u4eec\u4e24\u4e2a\u4eba\u7684\u7a7a\u95f4\u4e86\uff0c\u4e0d\u7528\u5728\u6d77\u91cf\u804a\u5929\u8bb0\u5f55\u91cc\u7ffb\u627e\u56de\u5fc6\uff0c\u6240\u6709\u7f8e\u597d\u7684\u77ac\u95f4\u90fd\u6536\u5728\u8fd9\u91cc\u3002"</p><div class="user"><div class="avatar a"></div><div><div class="name">\u5c0f\u9c7c & \u963f\u6770</div><div class="rel">\u5728\u4e00\u8d77 2 \u5e74</div></div></div></div>
 <div class="test rv d4"><div class="stars">\u2605\u2605\u2605\u2605\u2605</div><p class="text">"\u5ba0\u7269\u5c0f\u5c4b\u592a\u53ef\u7231\u4e86\uff01\u6211\u4eec\u6bcf\u5929\u4e00\u8d77\u5582\u5ba0\u7269\uff0c\u611f\u89c9\u5c31\u50cf\u771f\u7684\u5728\u517b\u4e00\u53ea\u5c5e\u4e8e\u6211\u4eec\u7684\u5c0f\u52a8\u7269\u3002"</p><div class="user"><div class="avatar b"></div><div><div class="name">\u6653\u6653 & \u5927\u4f1f</div><div class="rel">\u5f02\u5730\u604b 1.5 \u5e74</div></div></div></div>
 <div class="test rv d6"><div class="stars">\u2605\u2605\u2605\u2605\u2605</div><p class="text">"AI \u5199\u7684\u60c5\u4e66\u592a\u6d6a\u6f2b\u4e86\uff0c\u6bcf\u6b21\u7eaa\u5ff5\u65e5\u90fd\u80fd\u7ed9 TA \u4e00\u4e2a\u60ca\u559c\u3002\u5f00\u6e90\u9879\u76ee\u80fd\u505a\u5230\u8fd9\u79cd\u7a0b\u5ea6\u771f\u7684\u5f88\u5389\u5bb3\u3002"</p><div class="user"><div class="avatar c"></div><div><div class="name">\u5c0f\u96c5 & \u963f\u660e</div><div class="rel">\u5df2\u5a5a 3 \u5e74</div></div></div></div>
 </div></div></section>`,
 
-faq: `<section id="faq" class="alt"><div class="W">
-<div class="sh rv"><span class="tag">\u2726 \u5e38\u89c1\u95ee\u9898</span><h2>\u4f60\u53ef\u80fd\u60f3\u77e5\u9053\u7684</h2><p>\u5173\u4e8e\u90e8\u7f72\u3001\u4f7f\u7528\u548c\u5b89\u5168\u7684\u4e00\u4e9b\u5e38\u89c1\u95ee\u9898\u89e3\u7b54\u3002</p></div>
-<div class="faq-list">
-<div class="faq rv d2"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">\u767b\u5f55\u540e\u4e3a\u4ec0\u4e48\u8fd8\u662f\u6f14\u793a\u6a21\u5f0f\uff1f<span class="faq-a-icon">\u25be</span></div><div class="faq-ans"><p>\u68c0\u67e5 .env \u4e2d\u7684 Supabase URL \u548c anon key\uff0c\u786e\u8ba4\u90e8\u7f72\u73af\u5883\u4e5f\u914d\u7f6e\u4e86\u76f8\u540c\u53d8\u91cf\uff0c\u5e76\u91cd\u65b0\u751f\u6210\u9759\u6001\u6587\u4ef6\u3002</p></div></div>
-<div class="faq rv d3"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">\u901a\u8bdd\u63d0\u793a Token \u65e0\u6548\u600e\u4e48\u529e\uff1f<span class="faq-a-icon">\u25be</span></div><div class="faq-ans"><p>ZEGO \u7684\u524d\u7aef App ID \u4e0d\u80fd\u66ff\u4ee3 ServerSecret\u3002\u8bf7\u5728 Supabase Edge Function Secrets \u4e2d\u914d\u7f6e\u771f\u5b9e\u5bc6\u94a5\u3002</p></div></div>
-<div class="faq rv d4"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">\u80fd\u4e0d\u80fd\u53ea\u7528\u7f51\u9875\uff0c\u4e0d\u6784\u5efa APK\uff1f<span class="faq-a-icon">\u25be</span></div><div class="faq-ans"><p>\u5f53\u7136\u53ef\u4ee5\u3002\u8fd0\u884c npm run generate \u540e\u90e8\u7f72 .output/public/ \u5230\u9759\u6001\u6258\u7ba1\u5373\u53ef\u3002</p></div></div>
-<div class="faq rv d5"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">\u6570\u636e\u5b58\u50a8\u5728\u54ea\u91cc\uff1f\u662f\u5426\u5b89\u5168\uff1f<span class="faq-a-icon">\u25be</span></div><div class="faq-ans"><p>\u6240\u6709\u6570\u636e\u5b58\u50a8\u5728\u4f60\u81ea\u5df1\u914d\u7f6e\u7684 Supabase \u9879\u76ee\u4e2d\uff0c\u4f7f\u7528 RLS \u884c\u7ea7\u5b89\u5168\u7b56\u7565\u9694\u79bb\uff0c\u53ef\u5b8c\u5168\u81ea\u6258\u7ba1\u3002</p></div></div>
-<div class="faq rv d6"><div class="faq-q" onclick="this.parentElement.classList.toggle('open')">\u5982\u4f55\u8d21\u732e\u4ee3\u7801\u6216\u63d0\u51fa\u5efa\u8bae\uff1f<span class="faq-a-icon">\u25be</span></div><div class="faq-ans"><p>\u6b22\u8fce\u5728 GitHub \u63d0\u4ea4 Issue \u6216 Pull Request\u3002Fork \u4ed3\u5e93\uff0c\u521b\u5efa\u529f\u80fd\u5206\u652f\uff0c\u4fdd\u6301\u4fee\u6539\u8303\u56f4\u6e05\u6670\u5373\u53ef\u3002</p></div></div>
+license: `<section id="license" class="alt"><div class="W">
+<div class="sh rv"><span class="tag">✦ 开源许可</span><h2><span class="gt">MIT 协议</span> · 永久免费</h2><p>Love小家基于 MIT 协议完全开源，任何人都可以自由地使用、学习和改进。</p></div>
+<div class="lic-grid">
+<div class="lic-card rv d1"><div class="lic-ic ok">✓</div><h3>免费使用</h3><p>个人和团队均可免费使用，包括商用场景，无付费墙和功能限制。</p></div>
+<div class="lic-card rv d2"><div class="lic-ic ok">✓</div><h3>修改与再分发</h3><p>可以修改代码、二次开发并重新分发，衍生作品不强制开源。</p></div>
+<div class="lic-card rv d3"><div class="lic-ic ok">✓</div><h3>自由自托管</h3><p>部署到你自己的服务器与数据库，数据完全由自己掌控。</p></div>
+<div class="lic-card rv d4"><div class="lic-ic note">!</div><h3>保留许可声明</h3><p>分发时需保留版权与许可声明；软件按“原样”提供，不含任何担保。</p></div>
+</div>
+<div class="lic-act rv d5">
+<a href="https://github.com/XTH-LOVE/Love-/blob/HEAD/LICENSE" target="_blank" rel="noopener" class="b2">查看完整许可文本</a>
+<a href="https://github.com/XTH-LOVE/Love-/issues/new" target="_blank" rel="noopener" class="b2">反馈与建议（Issue）</a>
+<a href="mailto:2678049088@qq.com" class="b2">邮件联系</a>
 </div></div></section>`,
+
+changelog: `<section id="changelog"><div class="W">
+<div class="sh rv"><span class="tag">✦ 更新日志</span><h2>每一步，<span class="gt">都有记录</span></h2><p>项目成长轨迹与版本迭代记录。</p></div>
+<div class="tl">
+<div class="tl-item rv d2"><div class="tl-dot now"></div><div class="tl-card"><div class="tl-ver">v1.0.0 <span class="tl-date">2026.07 · 正式发布</span></div><p>12 个功能模块全部就绪：时光轴、相册、悄悄话、纪念日、共同清单、心动 AI、3D 宠物小屋；Web / Android / Windows 三端齐备，官网上线。</p></div></div>
+<div class="tl-item rv d3"><div class="tl-dot"></div><div class="tl-card"><div class="tl-ver">v0.9.x <span class="tl-date">2026 · 公测迭代</span></div><p>聊天媒体与位置分享、多相册管理、音视频通话、推送通知与应用更新检查，修复一系列体验问题。</p></div></div>
+<div class="tl-item rv d4"><div class="tl-dot"></div><div class="tl-card"><div class="tl-ver">v0.1.0 <span class="tl-date">2024 · 项目启动</span></div><p>为了“只属于两个人的空间”迈出第一步：项目搭建、Supabase 数据层、登录与情侣绑定。</p></div></div>
+</div></div></section>`,
+
+roadmap: `<section id="roadmap" class="alt"><div class="W">
+<div class="sh rv"><span class="tag">✦ 路线图</span><h2>接下来，<span class="gt">我们想去哪</span></h2><p>路线图仅代表规划方向，具体交付以更新日志为准。</p></div>
+<div class="road-grid">
+<div class="road-card rv d2"><div class="road-t"><span>\ud83d\udd1c</span>近期计划</div><ul>
+<li>纪念日提醒与倒计时优化</li>
+<li>AI 约会方案与情书更多风格</li>
+<li>性能瘦身与加载优化</li>
+</ul></div>
+<div class="road-card rv d4"><div class="road-t"><span>\ud83c\udf31</span>中期探索</div><ul>
+<li>iOS 客户端支持</li>
+<li>悄悄话端到端加密</li>
+<li>多语言界面</li>
+</ul></div>
+<div class="road-card rv d6"><div class="road-t"><span>\ud83d\udcad</span>长期愿景</div><ul>
+<li>更多 3D 宠物种类与互动玩法</li>
+<li>情侣成就与徽章体系</li>
+<li>数据一键导出与迁移</li>
+</ul></div>
+</div></div></section>`,
+
+faq: (()=>{
+const faqs=[
+['\u600e\u4e48\u5b89\u88c5 Android APK\uff1f','\u70b9\u51fb\u9875\u9762\u201c\u4e0b\u8f7d APK\u201d\u6216\u7528\u624b\u673a\u626b\u7801\u4e0b\u8f7d\u3002\u9996\u6b21\u5b89\u88c5\u65f6\u5982\u7cfb\u7edf\u63d0\u793a\u201c\u7981\u6b62\u5b89\u88c5\u672a\u77e5\u6765\u6e90\u5e94\u7528\u201d\uff0c\u8fdb\u5165\u8bbe\u7f6e\u5141\u8bb8\u672c\u6b21\u5b89\u88c5\uff0c\u7136\u540e\u70b9\u51fb\u4e0b\u8f7d\u597d\u7684\u6587\u4ef6\u5373\u53ef\u5b8c\u6210\u5b89\u88c5\u3002'],
+['Windows \u63d0\u793a\u201cWindows \u5df2\u4fdd\u62a4\u4f60\u7684\u7535\u8111\u201d\u600e\u4e48\u529e\uff1f','\u8fd9\u662f SmartScreen \u5bf9\u672a\u7b7e\u540d\u5e94\u7528\u7684\u5e38\u89c4\u63d0\u793a\u3002\u70b9\u51fb\u201c\u66f4\u591a\u4fe1\u606f\u201d\u540e\u9009\u62e9\u201c\u4ecd\u8981\u8fd0\u884c\u201d\u5373\u53ef\u7ee7\u7eed\u5b89\u88c5\uff0c\u5b89\u88c5\u7a0b\u5e8f\u53ea\u4f1a\u5199\u5165\u4f60\u9009\u62e9\u7684\u76ee\u5f55\u3002'],
+['\u767b\u5f55\u540e\u4e3a\u4ec0\u4e48\u8fd8\u662f\u6f14\u793a\u6a21\u5f0f\uff1f','\u68c0\u67e5 .env \u4e2d\u7684 Supabase URL \u548c anon key\uff0c\u786e\u8ba4\u90e8\u7f72\u73af\u5883\u4e5f\u914d\u7f6e\u4e86\u76f8\u540c\u53d8\u91cf\uff0c\u5e76\u91cd\u65b0\u751f\u6210\u9759\u6001\u6587\u4ef6\u3002'],
+['\u901a\u8bdd\u63d0\u793a Token \u65e0\u6548\u600e\u4e48\u529e\uff1f','ZEGO \u7684\u524d\u7aef App ID \u4e0d\u80fd\u66ff\u4ee3 ServerSecret\u3002\u8bf7\u5728 Supabase Edge Function Secrets \u4e2d\u914d\u7f6e\u771f\u5b9e\u5bc6\u94a5\u3002'],
+['\u80fd\u4e0d\u80fd\u53ea\u7528\u7f51\u9875\uff0c\u4e0d\u6784\u5efa APK\uff1f','\u5f53\u7136\u53ef\u4ee5\u3002\u8fd0\u884c npm run generate \u540e\u90e8\u7f72 .output/public/ \u5230\u9759\u6001\u6258\u7ba1\u5373\u53ef\u3002'],
+['\u6570\u636e\u5b58\u50a8\u5728\u54ea\u91cc\uff1f\u662f\u5426\u5b89\u5168\uff1f','\u6240\u6709\u6570\u636e\u5b58\u50a8\u5728\u4f60\u81ea\u5df1\u914d\u7f6e\u7684 Supabase \u9879\u76ee\u4e2d\uff0c\u4f7f\u7528 RLS \u884c\u7ea7\u5b89\u5168\u7b56\u7565\u9694\u79bb\uff0c\u53ef\u5b8c\u5168\u81ea\u6258\u7ba1\u3002'],
+['\u5982\u4f55\u8d21\u732e\u4ee3\u7801\u6216\u63d0\u51fa\u5efa\u8bae\uff1f','\u6b22\u8fce\u5728 GitHub \u63d0\u4ea4 Issue \u6216 Pull Request\u3002Fork \u4ed3\u5e93\uff0c\u521b\u5efa\u529f\u80fd\u5206\u652f\uff0c\u4fdd\u6301\u4fee\u6539\u8303\u56f4\u6e05\u6670\u5373\u53ef\u3002']
+];
+const items=faqs.map((f,i)=>`<div class="faq rv d${(i%5)+2}"><button type="button" class="faq-q" aria-expanded="false"><span>${f[0]}</span><span class="faq-a-icon" aria-hidden="true">\u25be</span></button><div class="faq-ans"><p>${f[1]}</p></div></div>`).join('\n');
+return {section:`<section id="faq"><div class="W">
+<div class="sh rv"><span class="tag">\u2726 \u5e38\u89c1\u95ee\u9898</span><h2>\u4f60\u53ef\u80fd\u60f3\u77e5\u9053\u7684</h2><p>\u5173\u4e8e\u5b89\u88c5\u3001\u90e8\u7f72\u3001\u4f7f\u7528\u548c\u5b89\u5168\u7684\u4e00\u4e9b\u5e38\u89c1\u95ee\u9898\u89e3\u7b54\u3002</p></div>
+<div class="faq-list">
+${items}
+</div></div></section>`,list:faqs};
+})(),
 
 cta: `<section class="cta"><div class="W">
 <h2 class="rv">\u5f00\u59cb\u5c5e\u4e8e\u4f60\u4eec\u7684<br><span class="gt">\u6545\u4e8b</span></h2>
@@ -184,11 +254,16 @@ cta: `<section class="cta"><div class="W">
 
 footer: `<footer><div class="W footer-inner">
 <div class="footer-links">
+<a href="#story">开发故事</a>
+<a href="#license">开源许可</a>
+<a href="#changelog">更新日志</a>
+<a href="#roadmap">路线图</a>
+<a href="https://github.com/XTH-LOVE/Love-/issues/new" target="_blank" rel="noopener">反馈建议</a>
 <a href="https://github.com/XTH-LOVE/Love-" target="_blank" rel="noopener">GitHub</a>
-<a href="https://love-home.pages.dev/" target="_blank" rel="noopener">\u5728\u7ebf\u4f53\u9a8c</a>
+<a href="https://love-home.pages.dev/" target="_blank" rel="noopener">在线体验</a>
 <a href="https://github.com/XTH-LOVE/Love-/blob/HEAD/LICENSE" target="_blank" rel="noopener">MIT License</a>
 </div>
-<p class="footer-copy">Love\u5c0f\u5bb6 &copy; 2024\u20132026 \u00b7 \u7531 <a href="https://github.com/XTH-LOVE" target="_blank" rel="noopener">XTH-LOVE</a> \u7528 \u2661 \u6784\u5efa</p>
+<p class="footer-copy">Love\u5c0f\u5bb6 &copy; 2024\u20132026 \u00b7 \u7531 <span class="footer-author">\u7f10\u5ef7\u534e</span> \u7528 \u2661 \u6784\u5efa \u00b7 <a href="mailto:2678049088@qq.com">2678049088@qq.com</a></p>
 </div></footer>
 <button class="btt" id="btt" aria-label="\u56de\u5230\u9876\u90e8">\u2191</button>`
 };

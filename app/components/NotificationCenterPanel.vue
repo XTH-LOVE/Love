@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bell, CalendarDays, CheckCheck, Flame, MessageCircleHeart, PawPrint, RefreshCw, Sparkles, Upload, X } from '@lucide/vue'
+import { Bell, CalendarDays, CheckCheck, MessageCircleHeart, RefreshCw, Sparkles, Upload, X } from '@lucide/vue'
 import type { AppNotification, NotificationTarget } from '~/composables/useNotificationCenter'
 import { useGSAP } from '~/composables/useGSAP'
 import { useMotionSettings } from '~/composables/useMotionSettings'
@@ -10,8 +10,8 @@ const notificationRoot = ref<HTMLElement | null>(null)
 const { gsap } = useGSAP()
 const { shouldAnimate } = useMotionSettings()
 let notificationTimeline: ReturnType<typeof gsap.timeline> | undefined
-const icons = { message: MessageCircleHeart, anniversary: CalendarDays, streak: Flame, pet: PawPrint, ai: Sparkles, upload: Upload }
-const labels = { message: '悄悄话', anniversary: '纪念日', streak: '火花', pet: '宠物', ai: '心动 AI', upload: '媒体' }
+const icons = { message: MessageCircleHeart, anniversary: CalendarDays, ai: Sparkles, upload: Upload }
+const labels = { message: '悄悄话', anniversary: '纪念日', ai: '心动 AI', upload: '媒体' }
 function formatTime(value: string) { const date = new Date(value); if (Number.isNaN(date.getTime())) return ''; return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date) }
 function open(item: AppNotification) { emit('read', item.id); emit('navigate', item.target) }
 onMounted(async () => {

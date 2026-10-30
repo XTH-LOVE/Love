@@ -2,6 +2,36 @@
 -- 026: 心情签到 + 每日问答 + 共享日历
 -- =============================================================
 
+-- ── 0. 旧表兼容（心动AI 时代已建过 daily_questions/daily_answers，列名不同）──
+do $$
+begin
+  if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'daily_questions') then
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'daily_questions' and column_name = 'question')
+       and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'daily_questions' and column_name = 'question_text') then
+      alter table public.daily_questions rename column question to question_text;
+    end if;
+  end if;
+end $$;
+
+do $$
+begin
+  if exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'daily_answers') then
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'daily_answers' and column_name = 'answer')
+       and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'daily_answers' and column_name = 'answer_text') then
+      alter table public.daily_answers rename column answer to answer_text;
+    end if;
+    if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'daily_answers' and column_name = 'couple_id') then
+      alter table public.daily_answers add column couple_id uuid references public.couples(id) on delete cascade;
+      update public.daily_answers a
+        set couple_id = q.couple_id
+        from public.daily_questions q
+        where a.question_id = q.id and a.couple_id is null;
+      delete from public.daily_answers where couple_id is null;
+      alter table public.daily_answers alter column couple_id set not null;
+    end if;
+  end if;
+end $$;
+
 -- ── 1. 心情签到 ──────────────────────────────────────────────
 create table if not exists public.mood_checkins (
   id uuid primary key default gen_random_uuid(),
@@ -129,9 +159,17 @@ create policy "shared events delete by creator"
   on public.shared_events for delete
   using (public.is_couple_member(couple_id) and created_by = auth.uid());
 
--- Realtime
-alter publication supabase_realtime add table public.mood_checkins;
-alter publication supabase_realtime add table public.daily_answers;
-alter publication supabase_realtime add table public.shared_events;
+-- Realtime（幂等：已加入则忽略 42710 重复错误）
+do $$ begin
+  alter publication supabase_realtime add table public.mood_checkins;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.daily_answers;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.shared_events;
+exception when duplicate_object then null; end $$;
 
 notify pgrst, 'reload schema';

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { occurrence, daysUntil, type Anniversary } from '../app/composables/useAnniversaries'
 import { mediaBucketForPath } from '../app/composables/useMediaUrls'
+import { estimateListeningPosition, sameMusicTrack, shouldApplyListeningEvent } from '../app/utils/listenTogetherState'
 
 // ─── Anniversary helpers ────────────────────────────────────────────
 
@@ -104,6 +105,23 @@ describe('mediaBucketForPath', () => {
   it('supports legacy bucket override for non-album paths', () => {
     expect(mediaBucketForPath('some/path', true)).toBe('memory-photos')
     expect(mediaBucketForPath('album-media/file.jpg', true)).toBe('album-media')
+  })
+})
+
+describe('listening room state', () => {
+  const track = { id: '1', name: 'Song', artist: ['Artist'], album: '', picId: '', urlId: '1', lyricId: '1', source: 'netease' as const }
+  it('rejects stale control events but keeps state heartbeats visible', () => {
+    expect(shouldApplyListeningEvent({ type: 'pause', revision: 3 }, 3)).toBe(false)
+    expect(shouldApplyListeningEvent({ type: 'play', revision: 4 }, 3)).toBe(true)
+    expect(shouldApplyListeningEvent({ type: 'state', revision: 3 }, 3)).toBe(true)
+  })
+  it('distinguishes tracks with the same id across sources', () => {
+    expect(sameMusicTrack(track, { ...track, source: 'netease' })).toBe(true)
+    expect(sameMusicTrack(track, { ...track, source: 'joox' })).toBe(false)
+  })
+  it('estimates a remote position from its timestamp', () => {
+    expect(estimateListeningPosition({ position: 12, playing: true, sentAt: 1000 }, 2500)).toBe(13.5)
+    expect(estimateListeningPosition({ position: 12, playing: false, sentAt: 1000 }, 2500)).toBe(12)
   })
 })
 

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { zegoPrivilegePayload, zegoRoomIdForCouple } from '../_shared/zegoRoom.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,7 +31,7 @@ function randomText(length: number) {
  * The binary layout follows ZEGO's official generateToken04 implementation:
  * expire(int64) + ivLength(uint16) + iv + ciphertextLength(uint16) + AES-CBC ciphertext.
  */
-async function generateToken04(appId: number, serverSecret: string, userId: string, ttl: number) {
+async function generateToken04(appId: number, serverSecret: string, userId: string, roomId: string, canPublish: boolean, ttl: number) {
   const createdAt = Math.floor(Date.now() / 1000)
   const expire = createdAt + ttl
   const nonceBytes = new Uint32Array(1)
@@ -41,7 +42,7 @@ async function generateToken04(appId: number, serverSecret: string, userId: stri
     nonce: nonceBytes[0] > 0x7fffffff ? nonceBytes[0] - 0x100000000 : nonceBytes[0],
     ctime: createdAt,
     expire,
-    payload: '',
+    payload: zegoPrivilegePayload(roomId, canPublish),
   })
   const keyBytes = encoder.encode(serverSecret)
   if (keyBytes.length !== 32) throw new Error(`ZEGO_SERVER_SECRET 长度为 ${keyBytes.length} 字节；请配置 ZEGO 控制台生成的 32 字符 ServerSecret，不能直接使用 AppSign`)
@@ -93,13 +94,15 @@ Deno.serve(async (req) => {
     const { data: member } = await supabase.from('couple_members').select('couple_id').eq('user_id', user.id).maybeSingle()
     if (!member?.couple_id) throw new Error('请先绑定情侣空间')
     const body = await req.json().catch(() => ({}))
-    const roomId = String(body.roomId || `love-home-${member.couple_id}`).slice(0, 120)
-    const userName = String(body.userName || user.user_metadata?.display_name || user.email?.split('@')[0] || 'Love小家').slice(0, 64)
+    const roomId = zegoRoomIdForCouple(member.couple_id, body.roomKind)
+    if (!roomId) return new Response(JSON.stringify({ error: 'ZEGO 房间类型无效' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    const canPublish = body.canPublish === true
+    const userName = String(user.user_metadata?.display_name || user.email?.split('@')[0] || 'Love小家').slice(0, 64)
     const appId = Number(Deno.env.get('ZEGO_APP_ID') || 0)
     const serverSecret = Deno.env.get('ZEGO_SERVER_SECRET') || ''
     const ttl = Math.min(7200, Math.max(900, Number(Deno.env.get('ZEGO_TOKEN_TTL') || 3600)))
     if (!appId || !serverSecret) throw new Error('ZEGO 尚未配置 AppID 或 ServerSecret')
-    const token = await generateToken04(appId, serverSecret, user.id, ttl)
+    const token = await generateToken04(appId, serverSecret, user.id, roomId, canPublish, ttl)
     const legacyToken = await generateLegacyKitToken(appId, serverSecret, roomId, user.id, userName, ttl)
     return new Response(JSON.stringify({ token, legacyToken, appId, roomId, ttl }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (error) {

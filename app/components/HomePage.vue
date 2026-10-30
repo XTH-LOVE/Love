@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import {
+  Activity,
+  Bell,
   CalendarDays,
   Heart,
   MapPin,
@@ -11,6 +13,7 @@ import {
   Check,
   ChevronRight,
   Film,
+  Settings,
 } from '@lucide/vue'
 import { occurrence, daysUntil } from '../composables/useAnniversaries'
 import { createMediaSignedUrl, refreshMediaElement, mediaBucketForPath } from '../composables/useMediaUrls'
@@ -28,8 +31,6 @@ const { items: togetherItems, toggleItem } = useTogetherList()
 const { unreadCount } = useMessages()
 const { unreadCount: notificationUnreadCount } = useNotificationCenter()
 const { $supabase } = useNuxtApp()
-
-const timelineRef = defineTemplateRef('timelineRef')
 
 const coverPickerVisible = ref(false)
 const selectedCoverPath = ref('')
@@ -180,7 +181,6 @@ async function refreshHero(event: Event) {
     </section>
 
     <LoveQuoteCarousel />
-    <PetStreakWidget />
     <MoodCheckinWidget />
     <DailyQuestionCard />
 
