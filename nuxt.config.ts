@@ -54,7 +54,9 @@ export default defineNuxtConfig({
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL || '',
       supabaseAnonKey: process.env.NUXT_PUBLIC_SUPABASE_ANON_KEY || '',
       zegoAppId: process.env.NUXT_PUBLIC_ZEGO_APP_ID || '1477734707',
-      zegoServer: process.env.NUXT_PUBLIC_ZEGO_SERVER || 'wss://webliveroom-api.zego.im/ws',
+      // Let ZEGO SDK 3.7+ discover the current access server from the AppID
+      // when no console-provided URL is configured.
+      zegoServer: process.env.NUXT_PUBLIC_ZEGO_SERVER || '',
       amapKey: process.env.NUXT_PUBLIC_AMAP_KEY || '',
       amapSecurityCode: process.env.NUXT_PUBLIC_AMAP_SECURITY_CODE || '',
       appVersion: process.env.NUXT_PUBLIC_APP_VERSION || '1.0.0',

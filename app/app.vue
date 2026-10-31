@@ -119,6 +119,17 @@ async function loadHomeData() {
   ].map(task => settleWithin(task)))
 }
 
+function handleCoupleActivity(event: Event) {
+  const detail = (event as CustomEvent).detail as { actorId?: string; target?: string } | undefined
+  if (!detail || detail.actorId === profile.value?.id) return
+  if (detail.target === '悄悄话') void loadMessages()
+  else if (detail.target === '时光') void loadMemories()
+  else if (detail.target === '相册') void loadAlbums(true)
+  else if (detail.target === '清单') void loadItems()
+  else if (detail.target === '纪念日') void loadAnniversaries()
+  else if (detail.target === '心动AI') void refreshAiWorks()
+}
+
 function startPairedBootstrap() {
   if (pairedBootstrapStarted) return
   pairedBootstrapStarted = true
@@ -206,6 +217,7 @@ onMounted(async () => {
   const savedNav = localStorage.getItem(NAV_STORAGE_KEY)
   if (savedNav && NAV_LABELS.has(savedNav)) activeNav.value = savedNav
   syncOnlineState()
+  window.addEventListener('couple-space:activity', handleCoupleActivity)
   window.addEventListener('online', syncOnlineState)
   window.addEventListener('offline', syncOnlineState)
   if (localStorage.getItem('couple-space-first-run-intro') !== '1') firstRunIntroVisible.value = true
@@ -254,7 +266,7 @@ watch(() => messages.value.length, (length, previousLength) => {
   messageToastTimer = setTimeout(() => { messageToast.value = null }, 5000)
 })
 const firstRunHasMedia = computed(() => allPhotos.value.length > 0)
-onBeforeUnmount(async () => { pageMotionContext?.revert(); if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
+onBeforeUnmount(async () => { pageMotionContext?.revert(); if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); window.removeEventListener('couple-space:activity', handleCoupleActivity); window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
 
 async function openChat() {
   messageToast.value = null
@@ -940,9 +952,14 @@ button:focus-visible { outline: 3px solid rgba(168, 139, 216, 0.35); outline-off
     .page-stage .identity-card
   ) {
     background: linear-gradient(145deg, rgba(255,255,255,.68), rgba(255,240,249,.5)) !important;
-    backdrop-filter: blur(12px) saturate(125%) !important;
-    -webkit-backdrop-filter: blur(12px) saturate(125%) !important;
+    /* Mobile GPUs pay a large cost for full-screen backdrop filters. Keep the
+       translucent surface, but let the background remain static and cheap. */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 8px 22px rgba(88, 43, 105, .08), inset 0 1px 0 rgba(255,255,255,.72) !important;
   }
+
+  .app-shell .love-sky { contain: strict; }
 }
 </style>
 

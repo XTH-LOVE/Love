@@ -4,7 +4,7 @@ type CallMode = 'audio' | 'video'
 import { notifySystem, requestSystemAlerts } from './useSystemAlerts'
 import { hideNativeCallOverlay, showNativeCallOverlay, startNativeCallService, startNativeIncomingAlert, stopNativeCallService, stopNativeIncomingAlert } from './useAndroidCallControls'
 import { extractZegoErrorCode, validateZegoAuth, zegoErrorMessage } from '~/utils/zegoDiagnostics'
-import { realtimeErrorDetail, syncRealtimeAuth } from '~/utils/realtimeAuth'
+import { realtimeChannelErrorMessage, realtimeErrorDetail, syncRealtimeAuth } from '~/utils/realtimeAuth'
 
 const callStatus = ref<CallStatus>('idle')
 const callError = ref('')
@@ -215,7 +215,7 @@ export function useCoupleCall() {
               error: detail || error,
               topic: `zego-call:${profile.value?.coupleId || ''}`,
             })
-            reject(new Error(`云通话信令连接失败（${status}）${detail ? `：${detail}` : ''}。请确认当前账号仍属于情侣空间，并检查 Supabase Realtime 私有频道策略。`))
+            reject(new Error(realtimeChannelErrorMessage('通话', status, error)))
             queueCallChannelReconnect(reconnect, canReconnect)
           }
         })
@@ -262,7 +262,9 @@ export function useCoupleCall() {
     const { ZegoExpressEngine } = await import('zego-express-engine-webrtc')
     const appId = Number(appIdOverride || config.public.zegoAppId || 0)
     if (!appId) throw new Error('ZEGO AppID 尚未配置')
-    zego = new ZegoExpressEngine(appId, String(config.public.zegoServer || 'wss://webliveroom-api.zego.im/ws'))
+    // A retired hard-coded host causes 1100002 before a room can be joined.
+    const server = String(config.public.zegoServer || '').trim()
+    zego = new ZegoExpressEngine(appId, server)
     zego.on('roomStreamUpdate', async (_room: string, updateType: string, streamList: Array<{ streamID: string }>) => {
       if (updateType === 'ADD') {
         for (const stream of streamList || []) {
@@ -405,8 +407,17 @@ export function useCoupleCall() {
     catch (error: any) { failCall(readableCallError(error, '无法接听云通话')) }
   }
 
-  async function rejectCall() { stopRingtone(); await broadcast('reject'); pendingInvite = false; cleanup() }
-  async function hangUp() { stopRingtone(); await broadcast('hang-up'); cleanup() }
+  async function rejectCall() {
+    stopRingtone()
+    await broadcast('reject').catch(() => undefined)
+    pendingInvite = false
+    cleanup()
+  }
+  async function hangUp() {
+    stopRingtone()
+    await broadcast('hang-up').catch(() => undefined)
+    cleanup()
+  }
 
   function toggleMute() {
     muted.value = !muted.value

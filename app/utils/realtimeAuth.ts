@@ -43,3 +43,12 @@ export function realtimeErrorDetail(error: unknown) {
   return detail.length > 240 ? `${detail.slice(0, 237)}...` : detail
 }
 
+export function realtimeChannelErrorMessage(kind: '通话' | '开麦', status: string, error?: unknown) {
+  const detail = realtimeErrorDetail(error)
+  const normalized = `${status} ${detail}`.toLowerCase()
+  if (normalized.includes('transport') || normalized.includes('socket') || normalized.includes('timeout') || status === 'TIMED_OUT') {
+    return `${kind}信令连接失败（${status}）：Supabase Realtime WebSocket 传输失败，请检查当前网络是否能连接 Supabase。`
+  }
+  return `${kind}信令连接失败（${status}）${detail ? `：${detail}` : ''}。请确认当前账号仍属于情侣空间，并检查 Supabase Realtime 私有频道权限。`
+}
+

@@ -13,6 +13,7 @@ describe('ZEGO diagnostics', () => {
     expect(zegoErrorMessage(1001004)).toContain('ZEGO AppID 鉴权失败')
     expect(zegoErrorMessage(1001005)).toContain('ZEGO AppSign 鉴权失败')
     expect(zegoErrorMessage(1100001)).toContain('缺少 Token')
+    expect(zegoErrorMessage(1100002)).toContain('服务连接超时')
     expect(zegoErrorMessage(1102016)).toContain('Token 无效或已过期')
   })
 

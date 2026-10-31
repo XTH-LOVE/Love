@@ -1,7 +1,7 @@
 import { notifySystem } from './useSystemAlerts'
 import { hideNativeCallOverlay, showNativeCallOverlay, startNativeCallService, stopNativeCallService } from './useAndroidCallControls'
 import { extractZegoErrorCode, validateZegoAuth, zegoErrorMessage } from '~/utils/zegoDiagnostics'
-import { realtimeErrorDetail, syncRealtimeAuth } from '~/utils/realtimeAuth'
+import { realtimeChannelErrorMessage, realtimeErrorDetail, syncRealtimeAuth } from '~/utils/realtimeAuth'
 
 export type LiveMicStatus = 'idle' | 'broadcasting' | 'listening'
 
@@ -25,6 +25,11 @@ let ignoreCurrentLive = false
 let loginInFlight = false
 let startInFlight = false
 let listenInFlight = false
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let reconnectAttempt = 0
+let intentionallyDisconnected = false
+let networkListenersReady = false
+let onlineHandler: (() => void) | null = null
 
 function readableError(error: any, fallback: string) {
   const code = extractZegoErrorCode(error)
@@ -44,6 +49,31 @@ function readableError(error: any, fallback: string) {
 
 function coupleRoomId(coupleId: string) {
   return `love-home-live-${coupleId}`.slice(0, 120)
+}
+
+function clearReconnect() {
+  if (reconnectTimer) clearTimeout(reconnectTimer)
+  reconnectTimer = null
+}
+
+function queueReconnect(reconnect: () => Promise<void>, canReconnect: () => boolean, delay?: number) {
+  if (reconnectTimer || intentionallyDisconnected || !import.meta.client || !canReconnect()) return
+  const wait = delay ?? Math.min(15000, Math.max(1000, 1000 * 2 ** reconnectAttempt))
+  reconnectAttempt = Math.min(reconnectAttempt + 1, 5)
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null
+    void reconnect().catch(() => queueReconnect(reconnect, canReconnect))
+  }, wait)
+}
+
+function setupNetworkListeners(reconnect: () => Promise<void>, canReconnect: () => boolean) {
+  if (!import.meta.client || networkListenersReady) return
+  onlineHandler = () => {
+    reconnectAttempt = 0
+    queueReconnect(reconnect, canReconnect, 0)
+  }
+  window.addEventListener('online', onlineHandler)
+  networkListenersReady = true
 }
 
 function getAudioElement() {
@@ -118,7 +148,8 @@ export function useCoupleLiveMic() {
     if (!import.meta.client) throw new Error('开麦功能只能在客户端使用')
     if (engine) return
     const { ZegoExpressEngine } = await import('zego-express-engine-webrtc')
-    engine = new ZegoExpressEngine(appId, String(config.public.zegoServer || 'wss://webliveroom-api.zego.im/ws'))
+    const server = String(config.public.zegoServer || '').trim()
+    engine = new ZegoExpressEngine(appId, server)
     engine.on('roomStreamUpdate', async (streamRoom: string, updateType: string, streamList: Array<{ streamID: string }>) => {
       if (streamRoom !== roomId || updateType !== 'ADD') return
       for (const stream of streamList || []) {
@@ -204,6 +235,10 @@ export function useCoupleLiveMic() {
   async function ensureLiveChannel() {
     if (demoMode.value || !$supabase || !profile.value?.coupleId) return
     if (channelReady) return channelReady
+    intentionallyDisconnected = false
+    const canReconnect = () => !intentionallyDisconnected && !demoMode.value && !!profile.value?.coupleId
+    const reconnect = () => ensureLiveChannel()
+    setupNetworkListeners(reconnect, canReconnect)
     const setup = (async () => {
       await syncRealtimeAuth($supabase)
       signalChannel = $supabase.channel(`zego-live:${profile.value!.coupleId}`, { config: { private: true, broadcast: { self: false, ack: true } } })
@@ -222,7 +257,10 @@ export function useCoupleLiveMic() {
         })
       return new Promise<void>((resolve, reject) => {
         signalChannel.subscribe((status: string, error?: unknown) => {
-          if (status === 'SUBSCRIBED') resolve()
+          if (status === 'SUBSCRIBED') {
+            reconnectAttempt = 0
+            resolve()
+          }
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             const detail = realtimeErrorDetail(error)
             console.error('[CoupleSpace] ZEGO live signal subscription failed', {
@@ -230,7 +268,8 @@ export function useCoupleLiveMic() {
               error: detail || error,
               topic: `zego-live:${profile.value?.coupleId || ''}`,
             })
-            reject(new Error(`开麦信令连接失败（${status}）${detail ? `：${detail}` : ''}。请确认当前账号仍属于情侣空间，并检查 Supabase Realtime 私有频道策略。`))
+            reject(new Error(realtimeChannelErrorMessage('开麦', status, error)))
+            queueReconnect(reconnect, canReconnect)
           }
         })
       })
@@ -240,6 +279,7 @@ export function useCoupleLiveMic() {
       signalChannel = null
       channelReady = null
       if (failedChannel && $supabase) await $supabase.removeChannel(failedChannel)
+      queueReconnect(reconnect, canReconnect)
       throw error
     })
     return channelReady
@@ -312,6 +352,8 @@ export function useCoupleLiveMic() {
   }
 
   async function disconnectLive() {
+    intentionallyDisconnected = true
+    clearReconnect()
     cleanupRoom()
     if (engine) { engine.destroyEngine(); engine = null }
     if (signalChannel && $supabase) await $supabase.removeChannel(signalChannel)
@@ -322,6 +364,12 @@ export function useCoupleLiveMic() {
     loginInFlight = false
     startInFlight = false
     listenInFlight = false
+    reconnectAttempt = 0
+    if (import.meta.client && networkListenersReady && onlineHandler) {
+      window.removeEventListener('online', onlineHandler)
+      onlineHandler = null
+      networkListenersReady = false
+    }
   }
 
   return {

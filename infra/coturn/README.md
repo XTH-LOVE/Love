@@ -64,7 +64,7 @@ The browser and APK request a one-hour credential after login. The long-lived sh
 ZEGO 云通话使用独立的短期 Token。设置完成后部署：
 
 ```bash
-supabase secrets set ZEGO_APP_ID="1962051148"
+supabase secrets set ZEGO_APP_ID="1477734707"
 supabase secrets set ZEGO_SERVER_SECRET="你的新 ServerSecret"
 supabase secrets set ZEGO_TOKEN_TTL="3600"
 supabase functions deploy zego-token
