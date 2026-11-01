@@ -58,9 +58,23 @@ jobs:
           # Rename to the canonical filename expected by app-update.json
           cd .output/public/downloads && for f in *.apk; do mv "$f" "Love小家-latest.apk"; done && cd -
 
+      - name: Prepare official landing deployment
+        run: |
+          mkdir -p .output/landing-public/downloads
+          cp public/official/index.html .output/landing-public/index.html
+          cp .output/public/downloads/Love小家-latest.apk .output/landing-public/downloads/Love小家-latest.apk
+          printf '/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n' > .output/landing-public/_headers
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy .output/public --project-name=love-home --branch=main
+
+      - name: Deploy official landing page
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy .output/landing-public --project-name=love-landing --branch=main
