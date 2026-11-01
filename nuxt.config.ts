@@ -64,6 +64,10 @@ export default defineNuxtConfig({
       appVersion: process.env.NUXT_PUBLIC_APP_VERSION || packageJson.version,
       appBuild: process.env.NUXT_PUBLIC_APP_BUILD || 'local',
       updateManifestUrl: process.env.NUXT_PUBLIC_UPDATE_MANIFEST_URL || 'https://love-home.pages.dev/app-update.json',
+      // Capacitor PushNotifications requires Firebase initialization on Android.
+      // Keep it opt-in so a build without google-services.json cannot crash
+      // after login when PushNotifications.register() is invoked.
+      pushNotificationsEnabled: process.env.NUXT_PUBLIC_PUSH_NOTIFICATIONS_ENABLED === 'true',
     },
   },
   nitro: {

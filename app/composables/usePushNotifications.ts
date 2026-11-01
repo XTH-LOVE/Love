@@ -15,6 +15,7 @@ async function isNativeAndroid() {
 
 export function usePushNotifications() {
   const { $supabase } = useNuxtApp()
+  const config = useRuntimeConfig()
   const { profile, demoMode } = useCoupleAuth()
 
   async function saveToken(token: string) {
@@ -38,7 +39,11 @@ export function usePushNotifications() {
 
   async function register() {
     if (registrationPromise) return registrationPromise
-    if (demoMode.value || !(await isNativeAndroid()) || !$supabase || !profile.value?.coupleId) return false
+    // The native Capacitor plugin calls FirebaseMessaging.getInstance()
+    // synchronously. Without Firebase initialization that call kills the
+    // Android process instead of returning a rejected promise, so do not
+    // invoke it unless the build explicitly includes Firebase support.
+    if (!config.public.pushNotificationsEnabled || demoMode.value || !(await isNativeAndroid()) || !$supabase || !profile.value?.coupleId) return false
     registrationPromise = (async () => {
       const { PushNotifications } = await import('@capacitor/push-notifications')
       const permission = await PushNotifications.checkPermissions()

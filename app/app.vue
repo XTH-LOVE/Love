@@ -1,10 +1,8 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import '@fontsource-variable/manrope'
 import '@fontsource-variable/nunito-sans'
-import CallScreen from './components/CallScreen.vue'
 import HomePage from './components/HomePage.vue'
-import HeartAiView from './components/HeartAiView.vue'
-import ListenTogetherView from './components/ListenTogetherView.vue'
 import {
   Activity,
   Calendar,
@@ -32,6 +30,10 @@ import { notifySystem, requestSystemAlerts } from './composables/useSystemAlerts
 import { createMediaSignedUrl, refreshMediaElement, revealVideoFrame } from './composables/useMediaUrls'
 import { useGSAP } from './composables/useGSAP'
 import { useMotionSettings } from './composables/useMotionSettings'
+
+const CallScreen = defineAsyncComponent(() => import('./components/CallScreen.vue'))
+const HeartAiView = defineAsyncComponent(() => import('./components/HeartAiView.vue'))
+const ListenTogetherView = defineAsyncComponent(() => import('./components/ListenTogetherView.vue'))
 
 const navItems = [
   { label: '首页', icon: Home },
@@ -91,6 +93,7 @@ const partnerMember = computed(() => members.value.find(m => m.id !== profile.va
 
 let pairedBootstrapStarted = false
 let romanceOpeningTimer: ReturnType<typeof setTimeout> | undefined
+let deferredBootstrapTimer: ReturnType<typeof setTimeout> | undefined
 
 function settleWithin<T>(promise: Promise<T>, timeout = 7000) {
   return Promise.race([
@@ -134,9 +137,19 @@ function startPairedBootstrap() {
   if (pairedBootstrapStarted) return
   pairedBootstrapStarted = true
   void loadHomeData().catch(() => undefined)
-  void settleWithin(ensureCallChannel().catch(() => undefined), 5000)
-  void settleWithin(ensureLiveChannel().catch(() => undefined), 5000)
-  void registerPushNotifications()
+  // Calls, microphone signaling, and native push registration are not needed
+  // to render the first screen. Starting them after the initial data burst
+  // keeps mobile login and check-in responsive on high-latency networks.
+  const startDeferredServices = () => {
+    void settleWithin(ensureCallChannel().catch(() => undefined), 5000)
+    void settleWithin(ensureLiveChannel().catch(() => undefined), 5000)
+    void registerPushNotifications()
+  }
+  if (import.meta.client && 'requestIdleCallback' in window) {
+    ;(window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number }).requestIdleCallback?.(startDeferredServices, { timeout: 1800 })
+  } else {
+    deferredBootstrapTimer = setTimeout(startDeferredServices, 1200)
+  }
 }
 
 function maybeShowFirstRunChecklist() {
@@ -266,7 +279,7 @@ watch(() => messages.value.length, (length, previousLength) => {
   messageToastTimer = setTimeout(() => { messageToast.value = null }, 5000)
 })
 const firstRunHasMedia = computed(() => allPhotos.value.length > 0)
-onBeforeUnmount(async () => { pageMotionContext?.revert(); if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); window.removeEventListener('couple-space:activity', handleCoupleActivity); window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
+onBeforeUnmount(async () => { pageMotionContext?.revert(); if (romanceOpeningTimer) clearTimeout(romanceOpeningTimer); if (deferredBootstrapTimer) clearTimeout(deferredBootstrapTimer); window.removeEventListener('couple-space:activity', handleCoupleActivity); window.removeEventListener('online', syncOnlineState); window.removeEventListener('offline', syncOnlineState); await disconnectCall(); await disconnectLive(); await disconnectPresence(); await disconnectMessages(); await disconnectMembers(); await disconnectAlbumPhotos() })
 
 async function openChat() {
   messageToast.value = null

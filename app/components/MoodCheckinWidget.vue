@@ -33,10 +33,14 @@ function moodColor(mood: MoodType | string) {
 
 async function submitMood() {
   if (!selectedMood.value) return
-  await checkin(selectedMood.value, moodNote.value.trim())
+  const mood = selectedMood.value
+  const note = moodNote.value.trim()
   showPicker.value = false
   selectedMood.value = null
   moodNote.value = ''
+  // The composable updates the local state optimistically. Keep the picker
+  // responsive while the Supabase write finishes in the background.
+  void checkin(mood, note).catch(() => undefined)
 }
 
 async function handleRemove(id: string) {

@@ -88,32 +88,44 @@ export function useMoodCheckin() {
     if (busy.value) return
     busy.value = true
     error.value = ''
-    try {
-      const userId = profile.value?.id || 'demo-user'
-      const coupleId = profile.value?.coupleId || 'demo'
-      const moodDate = todayStr()
+    const userId = profile.value?.id || 'demo-user'
+    const coupleId = profile.value?.coupleId || 'demo'
+    const moodDate = todayStr()
+    const existingIndex = checkins.value.findIndex(c => c.userId === userId && c.moodDate === moodDate)
+    const previous = existingIndex >= 0 ? checkins.value[existingIndex] : undefined
+    const optimistic: MoodCheckin = {
+      id: previous?.id || `local-${userId}-${moodDate}`,
+      userId,
+      mood,
+      note,
+      moodDate,
+      createdAt: previous?.createdAt || new Date().toISOString(),
+    }
 
+    // Reflect the check-in immediately. The network write continues in the
+    // background so a slow mobile connection does not block the interaction.
+    if (existingIndex >= 0) checkins.value[existingIndex] = optimistic
+    else checkins.value.unshift(optimistic)
+
+    try {
       if (!$supabase || demoMode.value) {
-        const existing = checkins.value.findIndex(c => c.userId === userId && c.moodDate === moodDate)
-        const item: MoodCheckin = { id: crypto.randomUUID(), userId, mood, note, moodDate, createdAt: new Date().toISOString() }
-        if (existing >= 0) checkins.value[existing] = item
-        else checkins.value.unshift(item)
         localStorage.setItem(storageKey(coupleId), JSON.stringify(checkins.value))
-        return item
+        return optimistic
       }
 
-      const { data, error: upsertError } = await $supabase
+      const { error: upsertError } = await $supabase
         .from('mood_checkins')
         .upsert({ couple_id: coupleId, user_id: userId, mood, note: note || null, mood_date: moodDate }, { onConflict: 'couple_id,user_id,mood_date' })
-        .select()
-        .single()
+        // The optimistic row already drives the UI. Avoid waiting for a
+        // response body just to obtain a server-generated id.
       if (upsertError) throw upsertError
-      const mapped = mapCheckin(data)
-      const existing = checkins.value.findIndex(c => c.id === mapped.id)
-      if (existing >= 0) checkins.value[existing] = mapped
-      else checkins.value.unshift(mapped)
-      return mapped
+      return optimistic
     } catch (cause: any) {
+      const currentIndex = checkins.value.findIndex(c => c.id === optimistic.id)
+      if (currentIndex >= 0) {
+        if (previous) checkins.value[currentIndex] = previous
+        else checkins.value.splice(currentIndex, 1)
+      }
       error.value = cause?.message || '签到失败'
       throw cause
     } finally {

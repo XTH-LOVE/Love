@@ -47,9 +47,9 @@ export function useCoupleAuth() {
     const { data } = await $supabase.auth.getSession()
     user.value = data.session?.user || null
     if (user.value) await loadMembership(user.value.id, user.value.email || '')
-    $supabase.auth.onAuthStateChange(async (_event, session) => {
+    $supabase.auth.onAuthStateChange((_event, session) => {
       user.value = session?.user || null
-      if (user.value) await loadMembership(user.value.id, user.value.email || '')
+      if (user.value) void loadMembership(user.value.id, user.value.email || '')
       else { profile.value = null; stage.value = 'signed-out' }
     })
   }
