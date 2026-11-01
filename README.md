@@ -40,7 +40,7 @@
 | Web 网页版 | [打开在线体验](https://love-home.pages.dev/) | 无需安装，支持 PWA 添加到主屏幕 |
 | Android | [下载 APK](https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love%E5%B0%8F%E5%AE%B6-latest.zip) | 下载后把 `.zip` 后缀改为 `.apk` 即可安装（阿里云政策禁止默认域名直连分发 APK） |
 | Windows | [下载 EXE](https://xthxiazai.oss-cn-beijing.aliyuncs.com/Love%E5%B0%8F%E5%AE%B6-Windows-x64.exe) | 142 MB 安装包，下载后双击安装 |
-| 官网 | [love-landing-8s9.pages.dev](https://love-landing-8s9.pages.dev/) | 产品介绍与下载入口 |
+| 官网 | [官方宣传页](https://love-home.pages.dev/official/) | 产品介绍与下载入口，APK 由 Pages 代理分发 |
 
 国内用户可直接从阿里云 OSS（北京节点）下载，无需访问 GitHub。
 

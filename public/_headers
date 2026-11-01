@@ -1,3 +1,7 @@
 /app-update.json
   Access-Control-Allow-Origin: *
   Cache-Control: no-store, max-age=0
+
+/downloads/*
+  Cache-Control: public, max-age=300
+  Content-Disposition: attachment
