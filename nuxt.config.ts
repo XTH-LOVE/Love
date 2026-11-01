@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import packageJson from './package.json'
+
 export default defineNuxtConfig({
   app: {
     head: {
@@ -59,7 +61,8 @@ export default defineNuxtConfig({
       zegoServer: process.env.NUXT_PUBLIC_ZEGO_SERVER || '',
       amapKey: process.env.NUXT_PUBLIC_AMAP_KEY || '',
       amapSecurityCode: process.env.NUXT_PUBLIC_AMAP_SECURITY_CODE || '',
-      appVersion: process.env.NUXT_PUBLIC_APP_VERSION || '1.0.0',
+      appVersion: process.env.NUXT_PUBLIC_APP_VERSION || packageJson.version,
+      appBuild: process.env.NUXT_PUBLIC_APP_BUILD || 'local',
       updateManifestUrl: process.env.NUXT_PUBLIC_UPDATE_MANIFEST_URL || 'https://love-home.pages.dev/app-update.json',
     },
   },

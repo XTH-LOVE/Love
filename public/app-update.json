@@ -1,9 +1,11 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "buildId": "local-1.0.1",
   "title": "Love小家",
   "notes": [],
   "apkUrl": "https://love-home.pages.dev/downloads/Love小家-latest.apk",
+  "desktopUrl": "",
   "webUrl": "https://love-home.pages.dev/",
-  "publishedAt": "2026-07-14",
+  "publishedAt": "2026-11-01T07:16:11.674Z",
   "mandatory": false
 }

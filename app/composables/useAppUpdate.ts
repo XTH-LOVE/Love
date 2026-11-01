@@ -1,8 +1,10 @@
 type AppUpdateManifest = {
   version: string
+  buildId?: string
   title?: string
   notes?: string[]
   apkUrl?: string
+  desktopUrl?: string
   webUrl?: string
   publishedAt?: string
   mandatory?: boolean
@@ -27,9 +29,21 @@ export function useAppUpdate() {
   const checking = ref(false)
   const dismissedVersion = ref('')
   const currentVersion = String(config.public.appVersion || '1.0.0')
+  const currentBuildId = String(config.public.appBuild || 'local')
   const updateUrl = String(config.public.updateManifestUrl || '')
-  const available = computed(() => Boolean(manifest.value && isNewer(manifest.value.version, currentVersion) && dismissedVersion.value !== manifest.value.version))
   const isAndroid = computed(() => import.meta.client && /Android/i.test(navigator.userAgent))
+  const remoteIsNewer = computed(() => {
+    if (!manifest.value) return false
+    if (isNewer(manifest.value.version, currentVersion)) return true
+    return Boolean(!isAndroid.value && manifest.value.buildId && currentBuildId !== 'local' && manifest.value.buildId !== currentBuildId)
+  })
+  const dismissedKey = computed(() => `couple-space-update-dismissed:${manifest.value?.version || ''}:${manifest.value?.buildId || ''}`)
+  const available = computed(() => Boolean(remoteIsNewer.value && dismissedVersion.value !== dismissedKey.value))
+
+  function loadDismissed() {
+    if (!import.meta.client) return
+    dismissedVersion.value = localStorage.getItem('couple-space-update-dismissed') || ''
+  }
 
   async function check() {
     if (!import.meta.client || !updateUrl || checking.value) return
@@ -47,18 +61,30 @@ export function useAppUpdate() {
   }
 
   function dismiss() {
-    if (manifest.value) dismissedVersion.value = manifest.value.version
+    if (!manifest.value) return
+    dismissedVersion.value = dismissedKey.value
+    if (import.meta.client) localStorage.setItem('couple-space-update-dismissed', dismissedVersion.value)
   }
 
-  function openUpdate() {
-    if (!isAndroid.value && manifest.value?.webUrl && /love-home\.pages\.dev$/i.test(window.location.hostname)) {
+  async function openUpdate() {
+    const isElectron = /Electron/i.test(navigator.userAgent)
+    const webUrl = manifest.value?.webUrl
+    const sameOrigin = Boolean(webUrl && new URL(webUrl, window.location.href).origin === window.location.origin)
+    if (!isAndroid.value && !isElectron && sameOrigin) {
+      await navigator.serviceWorker?.getRegistration('/')?.then(registration => registration?.update()).catch(() => undefined)
       window.location.reload()
       return
     }
-    const target = isAndroid.value ? manifest.value?.apkUrl || manifest.value?.webUrl : manifest.value?.webUrl || updateUrl
+    const target = isAndroid.value
+      ? manifest.value?.apkUrl || manifest.value?.webUrl
+      : isElectron
+        ? manifest.value?.desktopUrl || manifest.value?.webUrl || updateUrl
+        : manifest.value?.webUrl || updateUrl
     if (!target) return
     window.open(target, '_blank', 'noopener,noreferrer')
   }
 
-  return { currentVersion, manifest, checking, available, isAndroid, check, dismiss, openUpdate }
+  onMounted(loadDismissed)
+
+  return { currentVersion, currentBuildId, manifest, checking, available, isAndroid, check, dismiss, openUpdate }
 }

@@ -22,6 +22,7 @@ jobs:
       NUXT_PUBLIC_ZEGO_SERVER: ${{ secrets.NUXT_PUBLIC_ZEGO_SERVER }}
       NUXT_PUBLIC_AMAP_KEY: ${{ secrets.NUXT_PUBLIC_AMAP_KEY }}
       NUXT_PUBLIC_AMAP_SECURITY_CODE: ${{ secrets.NUXT_PUBLIC_AMAP_SECURITY_CODE }}
+      NUXT_PUBLIC_APP_BUILD: ${{ github.sha }}
 
     steps:
       - name: Checkout
@@ -38,6 +39,12 @@ jobs:
 
       - name: TypeScript check
         run: npx tsc --noEmit
+
+      - name: Write update manifest
+        env:
+          APP_UPDATE_NOTES: ${{ vars.APP_UPDATE_NOTES }}
+          APP_UPDATE_PUBLISHED_AT: ${{ github.event.head_commit.timestamp || '' }}
+        run: npm run update:manifest
 
       - name: Generate static site
         run: npm run generate

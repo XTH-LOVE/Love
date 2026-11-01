@@ -3,8 +3,22 @@ import { Download, Sparkles, X } from '@lucide/vue'
 
 const { manifest, available, isAndroid, check, dismiss, openUpdate } = useAppUpdate()
 
+let updateTimer: ReturnType<typeof setInterval> | undefined
+function checkWhenVisible() {
+  if (document.visibilityState === 'visible') void check()
+}
+
 onMounted(() => {
   void check()
+  updateTimer = setInterval(checkWhenVisible, 2 * 60 * 1000)
+  window.addEventListener('focus', checkWhenVisible)
+  document.addEventListener('visibilitychange', checkWhenVisible)
+})
+
+onBeforeUnmount(() => {
+  if (updateTimer) clearInterval(updateTimer)
+  window.removeEventListener('focus', checkWhenVisible)
+  document.removeEventListener('visibilitychange', checkWhenVisible)
 })
 </script>
 
@@ -16,7 +30,7 @@ onMounted(() => {
       <div class="update-copy">
         <strong>{{ manifest.title || 'Love小家有新版本了' }}</strong>
         <span>版本 {{ manifest.version }} · {{ isAndroid ? '下载最新版 APK' : '刷新即可更新' }}</span>
-        <small v-if="manifest.notes?.length">{{ manifest.notes[0] }}</small>
+        <small v-if="manifest.notes?.length">{{ manifest.notes.slice(0, 2).join(' · ') }}</small>
       </div>
       <button class="update-action" type="button" @click="openUpdate"><Download :size="16" />立即更新</button>
     </aside>

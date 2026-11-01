@@ -1,6 +1,6 @@
 {
   "name": "CoupleSpace",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Love小家情侣共同空间桌面客户端",
   "author": "缐廷华",
   "main": "desktop/main.cjs",
@@ -12,6 +12,7 @@
     "generate": "nuxt generate",
     "android:sync": "npm run generate && cap sync android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
+    "update:manifest": "node scripts/write-app-update-manifest.mjs",
     "preview": "nuxt preview",
     "desktop:dev": "electron desktop/main.cjs",
     "desktop:exe": "electron-builder --win nsis",
