@@ -1,8 +1,11 @@
 {
   "version": "1.0.1",
   "buildId": "local-1.0.1",
-  "title": "Love小家",
-  "notes": [],
+  "title": "Love小家移动体验优化",
+  "notes": [
+    "优化 Android 首屏启动，非首屏通话服务延后连接",
+    "心情签到即时反馈，网络同步在后台完成"
+  ],
   "apkUrl": "https://love-home.pages.dev/downloads/Love小家-latest.apk",
   "desktopUrl": "",
   "webUrl": "https://love-home.pages.dev/",
